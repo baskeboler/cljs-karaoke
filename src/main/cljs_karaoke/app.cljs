@@ -45,6 +45,7 @@
     ;; (rf/dispatch [::events/set-lyrics-loaded? false])
     ;; (reset! lyrics-loaded? false)
     (rf/dispatch [::events/fetch-lyrics name preprocess-frames])
+    (rf/dispatch [::events/toggle-song-list-visible])
     #_(ajax/GET lyrics-path
               {:handler #(do
                            (rf/dispatch [::events/set-lyrics
