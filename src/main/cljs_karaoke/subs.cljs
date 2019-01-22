@@ -38,6 +38,17 @@
    (:player-status db)))
 
 (rf/reg-sub
+ ::highlight-status
+ (fn [db _]
+   (:highlight-status db)))
+
+(rf/reg-sub
+ ::lyrics-delay
+ (fn [db _]
+   (:lyrics-delay db)))
+
+
+(rf/reg-sub
  ::song-list
  (fn [db _]
    (:song-list db)))

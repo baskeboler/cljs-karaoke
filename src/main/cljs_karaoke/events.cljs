@@ -13,10 +13,12 @@
     :lyrics nil
     :lyrics-loaded? false
     :lyrics-fetching? false
+    :lyrics-delay 1000
     :audio nil
     :display-lyrics? false
     :current-song nil
     :player-status nil
+    :highlight-status nil
     :playing? false
     :song-list {:page-size 10
                 :current-page 0
@@ -32,13 +34,14 @@
 (reg-set-attr ::set-current-frame :current-frame)
 (reg-set-attr ::set-audio :audio)
 (reg-set-attr ::set-lyrics :lyrics)
-
+(reg-set-attr ::set-lyrics-delay :lyrics-delay)
 (reg-set-attr ::set-lyrics-loaded? :lyrics-loaded?)
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
 
 (reg-set-attr ::set-current-song :current-song)
 
 (reg-set-attr ::set-player-status :player-status)
+(reg-set-attr ::set-highlight-status :highlight-status)
 (reg-set-attr ::set-song-filter :song-filter)
 
 (rf/reg-event-db

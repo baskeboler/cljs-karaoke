@@ -52,7 +52,7 @@
                                          (-> (reader/read-string %)
                                              (preprocess-frames))])
                            (rf/dispatch [::events/set-lyrics-loaded? true]))})))
-(def lyrics-delay 1000)
+(def lyrics-delay 0)
 (defn highlight-parts [frame]
   (let [part-chan (chan)
         evts (:events frame)]
@@ -65,14 +65,16 @@
         (println "highlight " h-id)
         (rf/dispatch
          [::events/highlight-frame-part h-id])
-        (recur (<! part-chan))))))
+        (recur (<! part-chan))))
+    (rf/dispatch [::events/set-highlight-status part-chan])))
 (defn play-lyrics [frames]
   (let [frame-chan (chan 1000)
-        part-chan (chan)]
+        part-chan (chan)
+        delay (rf/subscribe [::s/lyrics-delay])]
     (doseq [frame (vec frames)
             :when (not= nil (:ticks frame))]
       (go
-        (<! (timeout (- (long (:offset frame)) lyrics-delay)))
+        (<! (timeout (+ (long (:offset frame)) @delay)))
         (println "after timeout" frame)
         (>! frame-chan frame)
         (highlight-parts frame))
@@ -88,7 +90,16 @@
    ;; "lyrics/Africa.edn"
    ;; {:handler #(rf/dispatch [::events/set-lyrics (reader/read-string %)])}))
 
-
+(defn delay-select []
+  (let [delay (rf/subscribe [::s/lyrics-delay])]
+    [:div.field>div.control
+     [:div.select.delay-select
+      [:select {:value @delay
+                :on-change #(rf/dispatch [::events/set-lyrics-delay (-> % .-target .-value (long))])}
+       (for [v (vec (range -5000 5001 250))]
+         [:option {:key (str "opt_" v)
+                   :value v}
+          v])]]])) 
    
 (defn frame-text [frame]
   [:div.frame-text
@@ -120,12 +131,15 @@
 
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
+        highlight-status (rf/subscribe [::s/highlight-status])
         player-status (rf/subscribe [::s/player-status])]
     (.pause @audio)
     (.load @audio)
     (async/close! @player-status)
+    (async/close! @highlight-status)
+    (rf/dispatch [::events/set-highlight-status nil])
     (rf/dispatch [::events/set-player-status nil])
-    (rf/dispatch [::events/set-current-frame nil])
+    (rf/dispatch [::events/set-current-frame nil]) 
     (rf/dispatch [::events/set-lyrics nil])
     (rf/dispatch [::events/set-lyrics-loaded? false])))
 
@@ -152,6 +166,7 @@
      [:h1 "karaoke"]
      [:h2 [current-frame-display]]
      [toggle-display-lyrics-link]
+     [delay-select]
      [:ul
       [:li (str "current: " @current-song)]
       (when (and
