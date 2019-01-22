@@ -1,10 +1,15 @@
 (ns cljs-karaoke.app
   (:require [reagent.core :as reagent :refer [atom]]
+            [cljs-karaoke.events :as events]
+            [cljs-karaoke.subs :as s]
+            [re-frame.core :as rf :include-macros true]
             [ajax.core :as ajax]
             [cljs.reader :as reader]
-            [cljs.core.async :as async :refer [go go-loop chan <! >! timeout]]
+            [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
             ["midi.js"]
-            [cljs-karaoke.songs :as songs :refer [song-table-component]]))
+            [day8.re-frame.http-fx]
+            [cljs-karaoke.songs :as songs :refer [song-table-component]]
+            [cljs-karaoke.lyrics :as l :refer [preprocess-frames]]))
 
 
 #_(defn player [midi-path]
@@ -25,80 +30,70 @@
 (def player-status (atom nil))
 
 (defn toggle-display-lyrics []
-  (swap! display-lyrics? not))
+  (rf/dispatch [::events/set-display-lyrics? (not @(rf/subscribe [::s/display-lyrics?]))]))
 
 (defn toggle-display-lyrics-link []
   [:a {:href "#"
        :on-click toggle-display-lyrics}
    (if @display-lyrics? "hide lyrics" "show lyrics")])
 
-(defn to-relative-offset-events [base-offset]
-  (fn [event]
-    (-> event (update :offset - base-offset))))
-
-(defn update-events-to-relative-offset [base-offset]
-  (fn [events]
-    (mapv (to-relative-offset-events base-offset) events)))
-
-(defn to-relative-frame-offsets [frames]
-  (reduce (fn [res fr]
-            (let [last-frame (last res)
-                  new-offset (if-not (nil? last-frame)
-                               (- (:offset fr) (:offset last-frame))
-                               (:offset fr))
-                  new-frame (assoc fr :relative-offset new-offset)]
-              (conj res new-frame)))
-          []
-          frames))
-(defn preprocess-frames [frames]
-  (let [with-offset (mapv #(-> % (assoc :offset (-> (map :offset (:events %))
-                                                    sort
-                                                    first)))
-                                                    ;; (- 10000))))
-                           frames)
-        with-relative-events (mapv #(-> % (update :events (update-events-to-relative-offset (:offset %)))) with-offset)]
-    with-offset))
-
 (defn load-song [name]
   (let [audio-path (str "mp3/" name ".mid.mp3")
-        lyrics-path (str "lyrics/" name ".edn")]
-    (reset! audio (js/Audio. audio-path))
-    (reset! lyrics-loaded? false)
-    (ajax/GET lyrics-path
+        lyrics-path (str "lyrics/" name ".edn")
+        audio (js/Audio. audio-path)]
+    (rf/dispatch [::events/set-audio audio])
+    ;; (rf/dispatch [::events/set-lyrics-loaded? false])
+    ;; (reset! lyrics-loaded? false)
+    (rf/dispatch [::events/fetch-lyrics name preprocess-frames])
+    #_(ajax/GET lyrics-path
               {:handler #(do
-                           (reset! lyrics (-> (reader/read-string %)))
-                                              ;; (preprocess-frames)))
-                           (reset! lyrics-loaded? true))})))
-
+                           (rf/dispatch [::events/set-lyrics
+                                         (-> (reader/read-string %)
+                                             (preprocess-frames))])
+                           (rf/dispatch [::events/set-lyrics-loaded? true]))})))
+(def lyrics-delay 1000)
+(defn highlight-parts [frame]
+  (let [part-chan (chan)
+        evts (:events frame)]
+    (doseq [v (vec evts)]
+      (go
+        (<! (timeout (+ lyrics-delay (long (:offset v)))))
+        (>! part-chan (:id v))))
+    (go-loop [h-id (<! part-chan)]
+      (when h-id
+        (println "highlight " h-id)
+        (rf/dispatch
+         [::events/highlight-frame-part h-id])
+        (recur (<! part-chan))))))
 (defn play-lyrics [frames]
-  (let [frame-chan (chan 1000)]
+  (let [frame-chan (chan 1000)
+        part-chan (chan)]
     (doseq [frame (vec frames)
             :when (not= nil (:ticks frame))]
-      #_(js/setTimeout
-         (fn [& opt]))
       (go
-        (<! (timeout (- (long (:offset frame)) 3000)))
+        (<! (timeout (- (long (:offset frame)) lyrics-delay)))
         (println "after timeout" frame)
-        (>! frame-chan frame))
-       ;; (:offset frame))
+        (>! frame-chan frame)
+        (highlight-parts frame))
       nil)
     (go-loop [fr (<! frame-chan)]
       (when-not (nil? fr)
-        (reset! current-frame fr)
+        (rf/dispatch-sync [::events/set-current-frame fr])
         (recur (<! frame-chan))))
     frame-chan))
 
-(comment
-  (ajax/GET
-   "lyrics/Africa.edn"
-   {:handler #(reset! lyrics (reader/read-string %))}))
+;; (comment
+  ;; (ajax/GET
+   ;; "lyrics/Africa.edn"
+   ;; {:handler #(rf/dispatch [::events/set-lyrics (reader/read-string %)])}))
 
 
    
 (defn frame-text [frame]
   [:div.frame-text
    (for [e (vec (:events frame))]
-     [:span {:key (str "frame" (:ticks frame) "_ticks" (:ticks e))}
+     [:span {:key (str "evt_" (:id e))
+             :class (if (:highlighted? e) ["highlighted"] [])}
       (:text e)])])
 
 
@@ -109,33 +104,71 @@
      [:li [frame-text frame]])])
 
 (defn current-frame-display []
-  (when @current-frame
+  (when @(rf/subscribe [::s/current-frame])
     [:div.current-frame
-     [frame-text @current-frame]]))
+     [frame-text @(rf/subscribe [::s/current-frame])]]))
    
+(defn play []
+  (let [audio (rf/subscribe [::s/audio])
+        lyrics (rf/subscribe [::s/lyrics])]
+    (rf/dispatch-sync [::events/set-player-status
+                       (play-lyrics @lyrics)])
+    ;; (.play @audio)
 
+    (rf/dispatch [::events/play @audio @lyrics (play-lyrics @lyrics)])))
 
+(defn stop []
+  (let [audio (rf/subscribe [::s/audio])
+        player-status (rf/subscribe [::s/player-status])]
+    (.pause @audio)
+    (.load @audio)
+    (async/close! @player-status)
+    (rf/dispatch [::events/set-player-status nil])
+    (rf/dispatch [::events/set-current-frame nil])
+    (rf/dispatch [::events/set-lyrics nil])
+    (rf/dispatch [::events/set-lyrics-loaded? false])))
+
+(defn toggle-song-list-btn []
+  (let [visible? (rf/subscribe [::s/song-list-visible?])]
+    [:button.button
+     {:class (concat []
+                   (if @visible?
+                     ["is-selected"
+                      "is-success"]
+                     ["is-danger"]))
+      :on-click #(rf/dispatch [::events/toggle-song-list-visible])}
+     (if @visible?
+       "Hide songs"
+       "Show song list")]))
 (defn app []
-  [:div.app
-   [:div.app-bg]
-   [:h1 "karaoke"]
-   [:h2 [current-frame-display]]
-   [toggle-display-lyrics-link]
-   [:ul
-    [:li (str "current: " @current-song)]
-    (when (and
-           @lyrics
-           @display-lyrics?)
-      [:li [lyrics-view @lyrics]])
-    [:li (str "lyrics loaded? " @lyrics-loaded?)]]
-   [:button {:on-click #(load-song @current-song)} "Load song"]
-   [:button {:on-click #(do
-                          (.play @audio)
-                          (play-lyrics @lyrics))}
-        "Play song"]
-   [:button {:on-click #(.pause @audio)} "Stop"]
-   [songs/song-table-component {:select-fn (fn [s] (reset! current-song s))}]])
-             
+  (let [lyrics (rf/subscribe [::s/lyrics])
+        display-lyrics? (rf/subscribe [::s/display-lyrics?])
+        current-song (rf/subscribe [::s/current-song])
+        lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])
+        songs-visible? (rf/subscribe [::s/song-list-visible?])]
+    [:div.container.app
+     [:div.app-bg]
+     [:h1 "karaoke"]
+     [:h2 [current-frame-display]]
+     [toggle-display-lyrics-link]
+     [:ul
+      [:li (str "current: " @current-song)]
+      (when (and
+             @lyrics
+             @display-lyrics?)
+        [:li [lyrics-view @lyrics]])
+      [:li [:span (str "lyrics loaded? ") (if @lyrics-loaded? [:span.tag.is-success "loaded"] [:span.tag.is-danger "not loaded"])]]]
+     [:button.button {:on-click #(load-song @current-song)} "Load song"]
+     [:button.button {:on-click play}
+          "Play song"]
+     [:button.button {:on-click stop} "Stop"]
+     [toggle-song-list-btn]
+     (when @songs-visible?
+       [songs/song-table-component {:select-fn
+                                    (fn [s]
+                                      (rf/dispatch-sync [::events/set-current-song s])
+                                      (load-song @current-song))}])]))
+
 
 (defn mount-components! []
   (reagent/render
@@ -144,6 +177,7 @@
 
 (defn init! []
   (println "init!")
+  (rf/dispatch-sync [::events/init-db])
   (mount-components!))
 
 

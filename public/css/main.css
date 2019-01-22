@@ -2,13 +2,14 @@
     color: black;
     font-family: 'Trocchi', serif;
     font-size: 3.5em;
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-shadow: 0 0 15px white;
 }
 .song-table {
+    background-color: unset;
     color: black;
     text-shadow: 0 0 10px white;
 }
@@ -22,4 +23,8 @@
     height: 100vh;
     background-image: url("../images/Dolphin.jpg");
     background-size: cover;
+}
+
+.highlighted {
+    color: red;
 }

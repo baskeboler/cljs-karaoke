@@ -25,4 +25,9 @@
         :devtools {:http-port 8089
                    :http-root "public"
                    :preloads [day8.re-frame-10x.preload]
-                   :after-load cljs-karaoke.app/init!}}}}
+                   :after-load cljs-karaoke.app/init!}
+        :dev {:compiler-options
+              {:closure-defines
+               {"re_frame.trace.trace_enabled_QMARK_" true
+                "day8.re_frame.tracing.trace_enabled_QMARK_" true
+                "goog.DEBUG" true}}}}}}

@@ -1,6 +1,9 @@
 (ns cljs-karaoke.songs
   (:require [reagent.core :as reagent :refer [atom]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [cljs-karaoke.subs :as s]
+            [cljs-karaoke.events :as events]
+            [re-frame.core :as rf :include-macros true]))
 
 (def song-list
   ["14_Years"
@@ -181,20 +184,55 @@
   (->> (map vector song-list song-titles)
        (into {})))
 
+(defn song-table-pagination []
+  (let [song-count (count song-list)
+        current-page (rf/subscribe [::s/song-list-current-page])
+        page-size (rf/subscribe [::s/song-list-page-size])
+        filter-text (rf/subscribe [::s/song-list-filter])
+        page-offset (rf/subscribe [::s/song-list-offset])
+        next-fn #(rf/dispatch [::events/set-song-list-current-page (inc @current-page)])
+        prev-fn #(rf/dispatch [::events/set-song-list-current-page (dec @current-page)])]
+    (fn []
+      [:nav.pagination {:role :navigation}
+        [:a.pagination-previous {:on-click #(when (pos? @current-page) (prev-fn))
+                                 :disabled (if-not (pos? @current-page) true false)}
+              "Previous"]
+       [:a.pagination-next {:on-click #(when (> (- song-count @page-offset)
+                                                @page-size)
+                                         (next-fn))
+                            :disabled (if-not (> (- song-count @page-offset)
+                                                 @page-size)
+                                        true
+                                        false)}
+              "Next"]])))
+    
 (defn song-table-component
   [{:keys [select-fn]}]
-  [:table.song-table
-   [:thead
-    [:tr
-     [:th "Song"]
-     [:th]]]
-   [:tbody
-    (for [name (vec (sort (keys song-map)))
-          :let [title (get song-map name)]]
-      [:tr {:key name}
-       [:td title]
-       [:td [:a
-             {:href "#"
-              :on-click #(select-fn name)}
-             "Play song"]]])]])
+  (let [song-count (count song-list)
+        current-page (rf/subscribe [::s/song-list-current-page])
+        page-size (rf/subscribe [::s/song-list-page-size])
+        filter-text (rf/subscribe [::s/song-list-filter])
+        page-offset (rf/subscribe [::s/song-list-offset])]
+    [:div.card.song-table-component
+     [:div.card-header]
+     [:div.card-content
+      [song-table-pagination]
+      [:table.table.is-fullwidth.song-table
+        [:thead
+         [:tr
+          [:th "Song"]
+          [:th]]]
+        [:tbody
+         (for [name (->> (keys song-map)
+                         (sort)
+                         (vec)
+                         (drop @page-offset)
+                         (take @page-size)) ;(vec (sort (keys song-map)))
+               :let [title (get song-map name)]]
+           [:tr {:key name}
+            [:td title]
+            [:td [:a
+                  {:href "#"
+                   :on-click #(select-fn name)}
+                  "Load song"]]])]]]]))
 
