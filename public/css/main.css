@@ -1,0 +1,25 @@
+.current-frame {
+    color: black;
+    font-family: 'Trocchi', serif;
+    font-size: 3.5em;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-shadow: 0 0 15px white;
+}
+.song-table {
+    color: black;
+    text-shadow: 0 0 10px white;
+}
+.app-bg {
+    /* display: inline; */
+    position: fixed;
+    z-index: -100;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url("../images/Dolphin.jpg");
+    background-size: cover;
+}
