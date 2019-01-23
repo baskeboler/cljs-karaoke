@@ -21,11 +21,19 @@
          :highlight-status nil
          :playing? false
          :clock 0
+         :custom-song-delay {}
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
                      :visible? true}}
-    :dispatch [::clock-event]}))
+    :dispatch-n [[::clock-event]
+                 [::fetch-custom-delays]]}))
+(rf/reg-event-db
+ ::http-fetch-fail
+ (fn-traced
+  [db _]
+  (println "fetch failed")
+  db))
 
 (rf/reg-event-fx
  ::clock-event
@@ -36,11 +44,52 @@
    :dispatch-later [{:ms 500 :dispatch [::clock-event]}]}))
             
 
+(rf/reg-event-fx
+ ::fetch-custom-delays
+ (fn-traced
+  [{:keys [db]} _]
+  {:db db
+   :http-xhrio {:method :get
+                :uri "lyrics/delays.edn"
+                :timeout 8000
+                :response-format (ajax/text-response-format)
+                :on-success [::handle-fetch-delays-success]
+                :on-failure [::http-fetch-fail]}}))
+
+(rf/reg-event-fx
+ ::handle-fetch-delays-success
+ (fn-traced
+  [{:keys [db]} [_ delays-resp]]
+  {:db (-> db
+           (assoc :custom-song-delay (reader/read-string delays-resp)))
+   :dispatch [::init-song-delays]}))
+
 (defn reg-set-attr [evt-name attr-name]
   (rf/reg-event-db
    evt-name
    (fn-traced [db [_ obj]]
      (assoc db attr-name obj))))
+
+(defn save-custom-delays-to-localstore [delays]
+  (. js/localStorage (setItem "custom-song-delays" (js/JSON.stringify (clj->js delays)))))
+
+(defn get-custom-delays-from-localstorage []
+  (-> (. js/localStorage (getItem "custom-song-delays"))
+      (js/JSON.parse)
+      (js->clj)))
+
+(rf/reg-event-db
+ ::init-song-delays
+ (fn-traced
+  [db _]
+  (let [delays (get-custom-delays-from-localstorage)]
+    (if-not (nil? delays)
+      (-> db
+          (assoc :custom-song-delay (merge (if-not (nil? (:custom-song-delay db))
+                                             (:custom-song-delay db)
+                                             {})
+                                           delays)))
+      db))))
 
 (reg-set-attr ::set-current-frame :current-frame)
 (reg-set-attr ::set-audio :audio)
@@ -49,7 +98,15 @@
 (reg-set-attr ::set-lyrics-loaded? :lyrics-loaded?)
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
 
-(reg-set-attr ::set-current-song :current-song)
+;; (reg-set-attr ::set-current-song :current-song)
+
+(rf/reg-event-fx
+ ::set-current-song
+ (fn-traced
+  [{:keys [db]} [_ song-name]]
+  {:db (-> db
+           (assoc :current-song song-name))
+   :dispatch [::set-lyrics-delay (get-in db [:custom-song-delay song-name] (get db :lyrics-delay))]}))
 
 (reg-set-attr ::set-player-status :player-status)
 (reg-set-attr ::set-highlight-status :highlight-status)
@@ -121,3 +178,18 @@
                            (fn [evts]
                              (mapv (highlight-if-same-id part-id) evts))))
               db)))
+
+(rf/reg-event-db
+ ::save-custom-song-delays-to-localstorage
+ (fn-traced [db _]
+            (save-custom-delays-to-localstore (:custom-song-delay db))
+            db))
+
+(rf/reg-event-fx
+ ::set-custom-song-delay
+ (fn-traced
+  [{:keys [db]} [_ song-name delay]]
+  {:db (-> db
+           (assoc-in [:custom-song-delay song-name] delay))
+   :dispatch [::save-custom-song-delays-to-localstorage]}))
+

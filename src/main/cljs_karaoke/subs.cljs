@@ -126,3 +126,8 @@
         (not (nil? audio)))
      (.-paused audio)
      true)))
+
+(rf/reg-sub
+ ::custom-song-delay
+ (fn [db [_ song-name]]
+   (get-in db [:custom-song-delay song-name] (:lyrics-delay db))))
