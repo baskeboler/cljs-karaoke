@@ -42,8 +42,13 @@
 
 (reg-set-attr ::set-player-status :player-status)
 (reg-set-attr ::set-highlight-status :highlight-status)
-(reg-set-attr ::set-song-filter :song-filter)
-
+;; (reg-set-attr ::set-song-filter :song-filter)
+(rf/reg-event-db
+ ::set-song-filter
+ (fn-traced
+  [db [_ filter-text]]
+  (-> db
+      (assoc-in [:song-list :filter] filter-text)))) 
 (rf/reg-event-db
  ::set-song-list-current-page
  (fn-traced [db [_ page]]
@@ -89,14 +94,19 @@
                      (assoc :playing? true)
                      (assoc :player-status statys))}))
 
+(defn highlight-if-same-id [id]
+  (fn [evt]
+    (if (= id (:id evt))
+      (assoc evt :highlighted? true)
+      evt)))
+
 (rf/reg-event-db
  ::highlight-frame-part
- (fn-traced [db [_ part-id]]
-            (-> db
+ (fn-traced [db [_ frame-id part-id]]
+            (if (and  (get db :current-frame)
+                      (= frame-id (:id (get db :current-frame))))
+              (-> db
                 (update-in [:current-frame :events]
                            (fn [evts]
-                             (mapv
-                              #(if (= part-id (:id %))
-                                 (assoc % :highlighted? true)
-                                 %)
-                              evts))))))
+                             (mapv (highlight-if-same-id part-id) evts))))
+              db)))

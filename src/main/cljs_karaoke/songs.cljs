@@ -311,7 +311,13 @@
                                         true
                                         false)}
               "Next"]])))
-    
+(defn song-filter-component []
+  (let [filt (rf/subscribe [::s/song-list-filter])]
+    [:div.field>div.control
+     [:input.input.is-primary
+      {:value @filt
+       :on-change #(rf/dispatch [::events/set-song-filter
+                                 (-> % .-target .-value)])}]]))
 (defn song-table-component
   [{:keys [select-fn]}]
   (let [song-count (count song-list)
@@ -322,6 +328,7 @@
     [:div.card.song-table-component
      [:div.card-header]
      [:div.card-content
+      [song-filter-component]
       [song-table-pagination]
       [:table.table.is-fullwidth.song-table
         [:thead
@@ -330,6 +337,9 @@
           [:th]]]
         [:tbody
          (for [name (->> (keys song-map)
+                         (filter #(clojure.string/includes?
+                                   (clojure.string/lower-case %)
+                                   (clojure.string/lower-case @filter-text)))
                          (sort)
                          (vec)
                          (drop @page-offset)

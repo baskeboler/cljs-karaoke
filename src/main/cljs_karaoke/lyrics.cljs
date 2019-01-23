@@ -4,7 +4,9 @@
 
 
 (defn set-event-id [event]
-  (assoc event :id (random-uuid)))
+  (if-not (:id event)
+    (assoc event :id (random-uuid))
+    event))
 
 (defn to-relative-offset-events [base-offset]
   (fn [event]
@@ -27,7 +29,9 @@
                   new-offset (if-not (nil? last-frame)
                                (- (:offset fr) (:offset last-frame))
                                (:offset fr))
-                  new-frame (assoc fr :relative-offset new-offset)]
+                  new-frame (-> fr
+                                (assoc :relative-offset new-offset)
+                                (set-event-id))]
               (conj res new-frame)))
           []
           frames))
@@ -41,4 +45,5 @@
                               #(-> %
                                    (update :events
                                            (update-events-to-relative-offset-with-id (:offset %)))) with-offset)]
-    with-relative-events))
+    (-> with-relative-events
+        to-relative-frame-offsets)))
