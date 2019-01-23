@@ -67,6 +67,16 @@
           
       
 
+(defn song-progress []
+  (let [dur (rf/subscribe [::s/song-duration])
+        cur (rf/subscribe [::s/song-position])]
+    (fn []
+      [:progress.progress.is-small.is-primary.song-progress
+        {:max (if (number? @dur) @dur 0)
+         :value (if (number? @cur) @cur 0)}
+       (str (if (pos? @dur)
+               (long (* 100 (/ @cur @dur)))
+               0) "%")])))
 
 (defn highlight-parts [frame]
   (let [part-chan (chan)
@@ -187,7 +197,7 @@
 
 (defn toggle-song-list-btn []
   (let [visible? (rf/subscribe [::s/song-list-visible?])]
-    [:button.button
+    [:button.button.is-small
      {:class (concat []
                    (if @visible?
                      ["is-selected"
@@ -198,37 +208,68 @@
        "Hide songs"
        "Show song list")]))
 
-(defn app []
+(defn control-panel []
   (let [lyrics (rf/subscribe [::s/lyrics])
         display-lyrics? (rf/subscribe [::s/display-lyrics?])
         current-song (rf/subscribe [::s/current-song])
         lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])
         songs-visible? (rf/subscribe [::s/song-list-visible?])]
-    [:div.container.app
-     [:div.app-bg]
-     [:h1 "karaoke"]
+    
+    [:div.control-panel
+       {:class (if @(rf/subscribe [::s/song-paused?])
+                 ["song-paused"]
+                 ["song-playing"])}
+       [toggle-display-lyrics-link]
+       [delay-select]
+       (when @(rf/subscribe [::s/audio])
+         [song-progress])
+       [:ul
+        [:li (str "current: " @current-song)]
+        [:li (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]]
+
+       (when (and
+              @lyrics
+              @display-lyrics?)
+
+         [lyrics-view @lyrics])
+       [:span
+        (str "lyrics loaded? ")
+        (if @lyrics-loaded?
+          [:span.tag.is-success "loaded"]
+          [:span.tag.is-danger "not loaded"])]
+       [:div.buttons.is-small
+        [:button.button.is-primary.is-small {:on-click #(load-song @current-song)}
+         [:span.icon
+          [:i.fas.fa-folder-open]]]
+        [:button.button.is-info.is-small {:on-click play}
+         [:span.icon
+          [:i.fas.fa-play]]]
+        [:button.button.is-warning.is-small.stop-btn {:on-click stop}
+         [:span.icon
+          [:i.fas.fa-stop]]]
+        [toggle-song-list-btn]]
+       (when @songs-visible?
+         [songs/song-table-component {:select-fn
+                                      (fn [s]
+                                        (rf/dispatch-sync [::events/set-current-song s])
+                                        (load-song @current-song))}])]))
+
+(defn app []
+  [:div.container.app
+   [:div.app-bg]
+   [current-frame-display]
+   [control-panel]
+   [:button.button.is-danger.edge-stop-btn
+    {:class (if @(rf/subscribe [::s/song-paused?])
+              []
+              ["song-playing"])
+     :on-click stop}
+    [:span.icon
+     [:i.fas.fa-stop]]]
+   (when-not @(rf/subscribe [::s/song-paused?])
+     [:div.edge-progress-bar
+      [song-progress]])])
      
-     [current-frame-display]
-     [toggle-display-lyrics-link]
-     [delay-select]
-     [:ul
-      [:li (str "current: " @current-song)]
-      (when (and
-             @lyrics
-             @display-lyrics?)
-        [:li [lyrics-view @lyrics]])
-      [:li [:span (str "lyrics loaded? ") (if @lyrics-loaded? [:span.tag.is-success "loaded"] [:span.tag.is-danger "not loaded"])]]]
-     [:div.buttons
-      [:button.button.is-primary {:on-click #(load-song @current-song)} "Load song"]
-      [:button.button.is-info {:on-click play}
-          "Play song"]
-      [:button.button.is-warning {:on-click stop} "Stop"]
-      [toggle-song-list-btn]]
-     (when @songs-visible?
-       [songs/song-table-component {:select-fn
-                                    (fn [s]
-                                      (rf/dispatch-sync [::events/set-current-song s])
-                                      (load-song @current-song))}])]))
 
 
 (defn mount-components! []

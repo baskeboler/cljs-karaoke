@@ -6,24 +6,35 @@
             [cljs-karaoke.lyrics :refer [preprocess-frames]]))
 
 
-(rf/reg-event-db
+(rf/reg-event-fx
  ::init-db
  (fn-traced [_ _]
-   {:current-frame nil
-    :lyrics nil
-    :lyrics-loaded? false
-    :lyrics-fetching? false
-    :lyrics-delay 1000
-    :audio nil
-    :display-lyrics? false
-    :current-song nil
-    :player-status nil
-    :highlight-status nil
-    :playing? false
-    :song-list {:page-size 10
-                :current-page 0
-                :filter ""
-                :visible? true}}))
+   {:db {:current-frame nil
+         :lyrics nil
+         :lyrics-loaded? false
+         :lyrics-fetching? false
+         :lyrics-delay 1000
+         :audio nil
+         :display-lyrics? false
+         :current-song nil
+         :player-status nil
+         :highlight-status nil
+         :playing? false
+         :clock 0
+         :song-list {:page-size 10
+                     :current-page 0
+                     :filter ""
+                     :visible? true}}
+    :dispatch [::clock-event]}))
+
+(rf/reg-event-fx
+ ::clock-event
+ (fn-traced
+  [{:keys [db]} _]
+  {:db (-> db
+           (update :clock inc))
+   :dispatch-later [{:ms 500 :dispatch [::clock-event]}]}))
+            
 
 (defn reg-set-attr [evt-name attr-name]
   (rf/reg-event-db

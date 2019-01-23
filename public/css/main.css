@@ -44,3 +44,31 @@
     /* font-size: 1.1em; */
     transform: translate(10px, 50px);
 }
+
+.contorl-panel {
+    transition: all 2s ease-out;
+ 
+}
+.control-panel.song-playing {
+    display: none;
+}
+
+.edge-stop-btn {
+    display:none;
+}
+.edge-stop-btn.song-playing {
+    display: block;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    /* width: 32px; */
+    /* height: 32px; */
+}
+
+.edge-progress-bar .song-progress {
+    position: fixed;
+    bottom: 0.5em;
+    left: 0;
+    width: 100%;
+    padding: 0.2em 0.6em;
+}

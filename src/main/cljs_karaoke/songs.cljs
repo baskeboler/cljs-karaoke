@@ -313,11 +313,13 @@
               "Next"]])))
 (defn song-filter-component []
   (let [filt (rf/subscribe [::s/song-list-filter])]
-    [:div.field>div.control
+    [:div.field>div.control.has-icon
      [:input.input.is-primary
       {:value @filt
        :on-change #(rf/dispatch [::events/set-song-filter
-                                 (-> % .-target .-value)])}]]))
+                                 (-> % .-target .-value)])}]
+     [:span.icon
+      [:i.fas.fa-search]]]))
 (defn song-table-component
   [{:keys [select-fn]}]
   (let [song-count (count song-list)

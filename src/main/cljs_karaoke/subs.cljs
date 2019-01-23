@@ -83,3 +83,46 @@
  :<- [::song-list]
  (fn [song-list _]
    (:visible? song-list)))
+
+(rf/reg-sub
+ ::clock
+ (fn [db _]
+   (:clock db)))
+
+(rf/reg-sub
+ ::clocked-audio
+ :<- [::audio]
+ :<- [::clock]
+ (fn [[audio clock] _]
+   (if (pos? clock)
+     audio
+     nil)))
+
+(rf/reg-sub
+ ::song-duration
+ :<- [::clocked-audio]
+ :<- [::clock]
+ (fn [[audio clock] _]
+   (if (pos? clock)
+     (.-duration audio)
+     0)))
+
+(rf/reg-sub
+ ::song-position
+ :<- [::clocked-audio]
+ :<- [::clock]
+ (fn [[audio clock] _]
+   (if (pos? clock)
+     (.-currentTime audio)
+     0)))
+
+(rf/reg-sub
+ ::song-paused?
+ :<- [::clocked-audio]
+ :<- [::clock]
+ (fn [[audio clock] _]
+   (if (and
+        (pos? clock)
+        (not (nil? audio)))
+     (.-paused audio)
+     true)))
