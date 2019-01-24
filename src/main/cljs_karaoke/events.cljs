@@ -25,7 +25,8 @@
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
-                     :visible? true}}
+                     :visible? true}
+         :modals []}
     :dispatch-n [[::clock-event]
                  [::fetch-custom-delays]]}))
 (rf/reg-event-db
@@ -193,3 +194,17 @@
            (assoc-in [:custom-song-delay song-name] delay))
    :dispatch [::save-custom-song-delays-to-localstorage]}))
 
+
+(rf/reg-event-db
+ ::modal-push
+ (fn-traced
+  [db [_ modal]]
+  (-> db
+      (update :modals conj modal))))
+
+(rf/reg-event-db
+ ::modal-pop
+ (fn-traced
+  [db _]
+  (-> db
+      (update :modals pop))))

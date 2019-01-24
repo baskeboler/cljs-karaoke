@@ -1,16 +1,17 @@
 (ns cljs-karaoke.app
   (:require [reagent.core :as reagent :refer [atom]]
+            [re-frame.core :as rf :include-macros true]
+            [day8.re-frame.http-fx]
+            [ajax.core :as ajax]
             [cljs-karaoke.events :as events]
             [cljs-karaoke.subs :as s]
-            [re-frame.core :as rf :include-macros true]
-            [ajax.core :as ajax]
-            [cljs.reader :as reader]
-            [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
-            ["midi.js"]
-            [day8.re-frame.http-fx]
+            [cljs-karaoke.utils :as utils :refer [show-export-sync-info-modal]]
             [cljs-karaoke.songs :as songs :refer [song-table-component]]
             [cljs-karaoke.lyrics :as l :refer [preprocess-frames]]
-            [stylefy.core :as stylefy])) 
+            [cljs.reader :as reader]
+            [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
+            ;; ["midi.js"]
+            [stylefy.core :as stylefy]))
 
 (stylefy/init)
 
@@ -183,6 +184,7 @@
     (.play @audio)))
 
 
+
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
         highlight-status (rf/subscribe [::s/highlight-status])
@@ -219,6 +221,13 @@
       :on-click #(when-not (nil? @selected)
                    (rf/dispatch [::events/set-custom-song-delay @selected @delay]))}
      "remember song delay"]))
+
+(defn export-sync-data-btn []
+  [:button.button.is-info.is-small
+   {:on-click (fn [_]
+                (utils/show-export-sync-info-modal))}
+   "export sync data"])
+
 (defn control-panel []
   (let [lyrics (rf/subscribe [::s/lyrics])
         display-lyrics? (rf/subscribe [::s/display-lyrics?])
@@ -257,6 +266,7 @@
          [:span.icon
           [:i.fas.fa-stop]]]
         [save-custom-delay-btn]
+        [export-sync-data-btn]
         [toggle-song-list-btn]]]]
      (when @songs-visible?
        [:div.tile.is-vertical.is-child
@@ -267,6 +277,7 @@
 
 (defn app []
   [:div.container.app
+   [utils/modals-component]
    [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
    [current-frame-display]
    [control-panel]

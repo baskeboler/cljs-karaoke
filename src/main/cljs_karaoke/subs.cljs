@@ -131,3 +131,15 @@
  ::custom-song-delay
  (fn [db [_ song-name]]
    (get-in db [:custom-song-delay song-name] (:lyrics-delay db))))
+
+(rf/reg-sub
+ ::custom-song-delay-for-export
+ (fn [db _]
+   (-> db
+       :custom-song-delay
+       (pr-str))))
+
+(rf/reg-sub
+ ::modals
+ (fn [db _]
+   (:modals db)))
