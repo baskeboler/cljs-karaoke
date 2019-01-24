@@ -225,15 +225,15 @@
         current-song (rf/subscribe [::s/current-song])
         lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])
         songs-visible? (rf/subscribe [::s/song-list-visible?])]
-    
+
     [:div.control-panel.tile.is-ancestor
        {:class (if @(rf/subscribe [::s/song-paused?])
                  ["song-paused"]
                  ["song-playing"])}
      [:div.tile.is-vertical.is-parent (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
        [toggle-display-lyrics-link]
-       [delay-select]]
-     [:div.tile.is-parent.is-vertical
+       [delay-select]
+      [:div.tile.is-parent.is-vertical
        [:p (str "current: " @current-song)]
        [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]
        (when (and
@@ -244,7 +244,7 @@
         (str "lyrics loaded? ")
         (if @lyrics-loaded?
           [:span.tag.is-success "loaded"]
-          [:span.tag.is-danger "not loaded"])]
+          [:span.tag.is-danger "not loaded"])]]
       [:div.tile.is-child
        [:div.buttons.is-small
         [:button.button.is-primary.is-small {:on-click #(load-song @current-song)}
