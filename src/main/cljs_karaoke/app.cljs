@@ -50,6 +50,8 @@
   (let [audio-path (str "mp3/" name ".mid.mp3")
         lyrics-path (str "lyrics/" name ".edn")
         audio (js/Audio. audio-path)]
+    (set! (.-volume audio) 0)
+    (.play audio)
     (rf/dispatch [::events/set-audio audio])
     ;; (rf/dispatch [::events/set-lyrics-loaded? false])
     ;; (reset! lyrics-loaded? false)
@@ -189,7 +191,10 @@
         lyrics (rf/subscribe [::s/lyrics])]
     (rf/dispatch-sync [::events/set-player-status
                        (play-lyrics-2 @lyrics)])
-    (.play @audio)))
+    
+    (set! (.-currentTime @audio) 0)
+    (set! (.-volume @audio) 1)))
+        
 
     ;; (rf/dispatch [::events/play @audio @lyrics (play-lyrics @lyrics)])))
 
@@ -197,8 +202,7 @@
   (let [audio (rf/subscribe [::s/audio])
         highlight-status (rf/subscribe [::s/highlight-status])
         player-status (rf/subscribe [::s/player-status])]
-    (.pause @audio)
-    (.load @audio)
+    (set!  (.-volume @audio) 0)
     (rf/dispatch-sync [::events/set-current-frame nil]) 
     (rf/dispatch-sync [::events/set-lyrics nil])
     (rf/dispatch-sync [::events/set-lyrics-loaded? false])
@@ -243,8 +247,8 @@
      [:div.tile.is-vertical.is-parent (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
        [toggle-display-lyrics-link]
        [delay-select]
-       (when @(rf/subscribe [::s/audio])
-         [song-progress])
+       ;; (when @(rf/subscribe [::s/audio])
+         ;; [song-progress]]
       [:div.tile.is-parent.is-vertical
        [:p (str "current: " @current-song)]
        [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]

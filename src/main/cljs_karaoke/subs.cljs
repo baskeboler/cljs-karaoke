@@ -124,7 +124,7 @@
    (if (and
         (pos? clock)
         (not (nil? audio)))
-     (.-paused audio)
+     (= 0 (.-volume audio))
      true)))
 
 (rf/reg-sub

@@ -160,7 +160,7 @@
                           [::set-player-status status]]
              :db (-> db
                      (assoc :playing? true)
-                     (assoc :player-status statys))}))
+                     (assoc :player-status status))}))
 
 (defn highlight-if-same-id [id]
   (fn [evt]
