@@ -50,20 +50,11 @@
   (let [audio-path (str "mp3/" name ".mid.mp3")
         lyrics-path (str "lyrics/" name ".edn")
         audio (js/Audio. audio-path)]
-    (set! (.-volume audio) 0)
     (.play audio)
+    (set! (.-volume audio) 0)
     (rf/dispatch [::events/set-audio audio])
-    ;; (rf/dispatch [::events/set-lyrics-loaded? false])
-    ;; (reset! lyrics-loaded? false)
     (rf/dispatch [::events/fetch-lyrics name preprocess-frames])
-    (rf/dispatch [::events/toggle-song-list-visible])
-    #_(ajax/GET lyrics-path
-              {:handler #(do
-                           (rf/dispatch [::events/set-lyrics
-                                         (-> (reader/read-string %)
-                                             (preprocess-frames))])
-                           (rf/dispatch [::events/set-lyrics-loaded? true]))})))
-;; (def lyrics-delay 0)
+    (rf/dispatch [::events/toggle-song-list-visible])))
 
 (defn return-after-timeout [obj delay]
   (let [ret-chan (chan)]
@@ -82,8 +73,6 @@
         (let [[v ch] (async/alts! part-tos)]
           (println "highlight-2" (:id v))
           (rf/dispatch-sync [::events/highlight-frame-part (:id frame) (:id v)]))))))
-          
-      
 
 (defn song-progress []
   (let [dur (rf/subscribe [::s/song-duration])
@@ -131,8 +120,7 @@
               (rf/dispatch-sync [::events/set-current-frame v])
               (highlight-parts-2 v))))))
     frame-chan))
-            
-      
+
 (defn play-lyrics [frames]
   (let [frame-chan (chan 1000)
         ;; part-chan (chan 10)
@@ -161,7 +149,6 @@
        [:div.select.delay-select
          [:select {:value @delay
                    :on-change #(rf/dispatch [::events/set-lyrics-delay (-> % .-target .-value (long))])}
-          
           (for [v (vec (range -10000 10001 250))]
              [:option {:key (str "opt_" v)
                        :value v}
@@ -191,12 +178,9 @@
         lyrics (rf/subscribe [::s/lyrics])]
     (rf/dispatch-sync [::events/set-player-status
                        (play-lyrics-2 @lyrics)])
-    
     (set! (.-currentTime @audio) 0)
     (set! (.-volume @audio) 1)))
-        
 
-    ;; (rf/dispatch [::events/play @audio @lyrics (play-lyrics @lyrics)])))
 
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
@@ -246,23 +230,19 @@
                  ["song-playing"])}
      [:div.tile.is-vertical.is-parent (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
        [toggle-display-lyrics-link]
-       [delay-select]
-       ;; (when @(rf/subscribe [::s/audio])
-         ;; [song-progress]]
-      [:div.tile.is-parent.is-vertical
+       [delay-select]]
+     [:div.tile.is-parent.is-vertical
        [:p (str "current: " @current-song)]
        [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]
-
        (when (and
               @lyrics
               @display-lyrics?)
-
          [lyrics-view @lyrics])
        [:p
         (str "lyrics loaded? ")
         (if @lyrics-loaded?
           [:span.tag.is-success "loaded"]
-          [:span.tag.is-danger "not loaded"])]]
+          [:span.tag.is-danger "not loaded"])]
       [:div.tile.is-child
        [:div.buttons.is-small
         [:button.button.is-primary.is-small {:on-click #(load-song @current-song)}
