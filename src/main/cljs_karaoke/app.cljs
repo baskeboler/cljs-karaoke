@@ -51,7 +51,8 @@
         lyrics-path (str "lyrics/" name ".edn")
         audio (js/Audio. audio-path)]
     (.play audio)
-    (set! (.-volume audio) 0)
+    (.pause audio)
+    ;; (set! (.-volume audio) 0)
     (rf/dispatch [::events/set-audio audio])
     (rf/dispatch [::events/fetch-lyrics name preprocess-frames])
     (rf/dispatch [::events/toggle-song-list-visible])))
@@ -179,14 +180,15 @@
     (rf/dispatch-sync [::events/set-player-status
                        (play-lyrics-2 @lyrics)])
     (set! (.-currentTime @audio) 0)
-    (set! (.-volume @audio) 1)))
+    (.play @audio)))
 
 
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
         highlight-status (rf/subscribe [::s/highlight-status])
         player-status (rf/subscribe [::s/player-status])]
-    (set!  (.-volume @audio) 0)
+    (.pause @audio)
+    (set! (.-currentTime @audio) 0)
     (rf/dispatch-sync [::events/set-current-frame nil]) 
     (rf/dispatch-sync [::events/set-lyrics nil])
     (rf/dispatch-sync [::events/set-lyrics-loaded? false])
