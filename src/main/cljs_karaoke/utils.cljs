@@ -24,6 +24,15 @@
    (for [m @(rf/subscribe [::s/modals])]
      m)])
 
+(defn select-element-text [element-id]
+  (let [element (. js/document (getElementById element-id))
+        text-range (. js/document (createRange))
+        selection (. js/window (getSelection))]
+    (-> text-range (.selectNodeContents element))
+    (-> selection (.removeAllRanges))
+    (-> selection (.addRange text-range))))
+
+
 (defn show-export-sync-info-modal []
   (let [data @(rf/subscribe [::s/custom-song-delay-for-export])
         modal (modal-card-dialog
@@ -31,6 +40,8 @@
                 :content [:div.export-sync-data-content
                           [:div.field>div.control
                            [:textarea.textarea.is-primary
-                            data]]]
+                            {:id "sync-info-textarea"
+                             :value data}
+                           ]]]
                 :footer nil})]
     (rf/dispatch [::events/modal-push modal])))

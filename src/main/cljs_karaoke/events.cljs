@@ -25,6 +25,7 @@
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
+                     :filter-verified? false
                      :visible? true}
          :modals []}
     :dispatch-n [[::clock-event]
@@ -99,6 +100,13 @@
 (reg-set-attr ::set-lyrics-loaded? :lyrics-loaded?)
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
 
+(rf/reg-event-db
+ ::toggle-display-lyrics
+ (fn-traced
+  [db _]
+  (-> db
+      (update :display-lyrics? not))))
+
 ;; (reg-set-attr ::set-current-song :current-song)
 
 (rf/reg-event-fx
@@ -112,12 +120,15 @@
 (reg-set-attr ::set-player-status :player-status)
 (reg-set-attr ::set-highlight-status :highlight-status)
 ;; (reg-set-attr ::set-song-filter :song-filter)
-(rf/reg-event-db
+
+(rf/reg-event-fx
  ::set-song-filter
  (fn-traced
-  [db [_ filter-text]]
-  (-> db
-      (assoc-in [:song-list :filter] filter-text)))) 
+  [{:keys [db]} [_ filter-text]]
+  {:db (-> db
+           (assoc-in [:song-list :filter] filter-text))
+   :dispatch [::set-song-list-current-page 0]})) 
+
 (rf/reg-event-db
  ::set-song-list-current-page
  (fn-traced [db [_ page]]
@@ -126,9 +137,10 @@
 
 (rf/reg-event-db
  ::toggle-song-list-visible
- (fn-traced [db _]
-            (-> db
-                (update-in [:song-list :visible?] not))))
+ (fn-traced
+  [db _]
+  (-> db
+      (update-in [:song-list :visible?] not))))
 
 (rf/reg-event-fx
  ::fetch-lyrics
@@ -144,12 +156,16 @@
 
 (rf/reg-event-db
  ::handle-set-lyrics-success
- (fn-traced [db [_ lyrics]]
-            (-> db
-                (assoc :lyrics (-> (reader/read-string lyrics)
-                                   (preprocess-frames)))
-                (assoc :lyrics-fetching? false)
-                (assoc :lyrics-loaded? true))))
+ (fn-traced
+  [db [_ lyrics]]
+  (let [l (-> lyrics
+              (reader/read-string)
+              (preprocess-frames))]
+    
+     (-> db
+         (assoc :lyrics l)
+         (assoc :lyrics-fetching? false)
+         (assoc :lyrics-loaded? true)))))
 
 (rf/reg-event-fx
  ::play
@@ -194,6 +210,12 @@
            (assoc-in [:custom-song-delay song-name] delay))
    :dispatch [::save-custom-song-delays-to-localstorage]}))
 
+(rf/reg-event-db
+ ::toggle-filter-verified-songs
+ (fn-traced
+  [db _]
+  (-> db
+      (update-in [:song-list :filter-verified?] not))))
 
 (rf/reg-event-db
  ::modal-push

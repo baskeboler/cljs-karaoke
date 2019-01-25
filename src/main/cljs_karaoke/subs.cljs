@@ -85,6 +85,13 @@
    (:visible? song-list)))
 
 (rf/reg-sub
+ ::song-list-filter-verified?
+ :<- [::song-list]
+ :<- [::verified-songs]
+ (fn [[song-list verified] _]
+   (filter verified song-list)))
+
+(rf/reg-sub
  ::clock
  (fn [db _]
    (:clock db)))
@@ -131,6 +138,12 @@
  ::custom-song-delay
  (fn [db [_ song-name]]
    (get-in db [:custom-song-delay song-name] (:lyrics-delay db))))
+
+(rf/reg-sub
+ ::verified-songs
+ (fn [db _]
+   (->> (keys (:custom-song-delay db))
+        (into #{}))))
 
 (rf/reg-sub
  ::custom-song-delay-for-export

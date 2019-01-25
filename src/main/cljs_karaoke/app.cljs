@@ -40,12 +40,16 @@
     (recur wps-2 (<! (timeout (* 60 1000))))))
 
 (defn toggle-display-lyrics []
-  (rf/dispatch [::events/set-display-lyrics? (not @(rf/subscribe [::s/display-lyrics?]))]))
+  (rf/dispatch [::events/toggle-display-lyrics]))
 
 (defn toggle-display-lyrics-link []
-  [:a {:href "#"
-       :on-click toggle-display-lyrics}
-   (if @(rf/subscribe [::s/display-lyrics?]) "hide lyrics" "show lyrics")])
+  [:div.field>div.control
+   [:a.button.is-info
+     {:href "#"
+      :on-click toggle-display-lyrics}
+     (if @(rf/subscribe [::s/display-lyrics?])
+       "hide lyrics"
+       "show lyrics")]])
 
 (defn load-song [name]
   (let [audio-path (str "mp3/" name ".mid.mp3")
@@ -81,11 +85,11 @@
         cur (rf/subscribe [::s/song-position])]
     (fn []
       [:progress.progress.is-small.is-primary.song-progress
-        {:max (if (number? @dur) @dur 0)
-         :value (if (number? @cur) @cur 0)}
+       {:max (if (number? @dur) @dur 0)
+        :value (if (number? @cur) @cur 0)}
        (str (if (pos? @dur)
-               (long (* 100 (/ @cur @dur)))
-               0) "%")])))
+              (long (* 100 (/ @cur @dur)))
+              0) "%")])))
 
 (defn highlight-parts [frame]
   (let [part-chan (chan)
@@ -142,28 +146,25 @@
         (recur (<! frame-chan))))
     frame-chan))
 
-
 (defn delay-select []
   (let [delay (rf/subscribe [::s/lyrics-delay])]
-    [:div.tile.is-child.is-12.field
-     [:label "Text delay (ms)"]
+    [:div.field
+     ;; [:label "Text delay (ms)"]
      [:div.control
-       [:div.select.delay-select
-         [:select {:value @delay
-                   :on-change #(rf/dispatch [::events/set-lyrics-delay (-> % .-target .-value (long))])}
-          (for [v (vec (range -10000 10001 250))]
-             [:option {:key (str "opt_" v)
-                       :value v}
-              v])]]]])) 
-   
+      [:div.select.is-primary.is-fullwidth.delay-select
+       [:select {:value @delay
+                 :on-change #(rf/dispatch [::events/set-lyrics-delay (-> % .-target .-value (long))])}
+        (for [v (vec (range -10000 10001 250))]
+          [:option {:key (str "opt_" v)
+                    :value v}
+           v])]]]]))
+
 (defn frame-text [frame]
   [:div.frame-text
    (for [e (vec (:events frame))]
      [:span {:key (str "evt_" (:id e))
              :class (if (:highlighted? e) ["highlighted"] [])}
       (:text e)])])
-
-
 
 (defn lyrics-view [lyrics]
   [:div.tile.is-child.is-vertical
@@ -174,7 +175,7 @@
   (when @(rf/subscribe [::s/current-frame])
     [:div.current-frame
      [frame-text @(rf/subscribe [::s/current-frame])]]))
-   
+
 (defn play []
   (let [audio (rf/subscribe [::s/audio])
         lyrics (rf/subscribe [::s/lyrics])]
@@ -183,15 +184,13 @@
     (set! (.-currentTime @audio) 0)
     (.play @audio)))
 
-
-
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
         highlight-status (rf/subscribe [::s/highlight-status])
         player-status (rf/subscribe [::s/player-status])]
     (.pause @audio)
     (set! (.-currentTime @audio) 0)
-    (rf/dispatch-sync [::events/set-current-frame nil]) 
+    (rf/dispatch-sync [::events/set-current-frame nil])
     (rf/dispatch-sync [::events/set-lyrics nil])
     (rf/dispatch-sync [::events/set-lyrics-loaded? false])
     (when-not (nil? @player-status)
@@ -203,30 +202,33 @@
 
 (defn toggle-song-list-btn []
   (let [visible? (rf/subscribe [::s/song-list-visible?])]
-    [:button.button.is-small
+    [:button.button.is-fullwidth
      {:class (concat []
-                   (if @visible?
-                     ["is-selected"
-                      "is-success"]
-                     ["is-danger"]))
+                     (if @visible?
+                       ["is-selected"
+                        "is-success"]
+                       ["is-danger"]))
       :on-click #(rf/dispatch [::events/toggle-song-list-visible])}
-     (if @visible?
-       "Hide songs"
-       "Show song list")]))
+     [:span.icon
+      (if @visible?
+       [:i.fas.fa-eye-slash];"Hide songs"
+       [:i.fas.fa-eye])]])) ;"Show song list")]]))
 (defn save-custom-delay-btn []
   (let [selected (rf/subscribe [::s/current-song])
         delay (rf/subscribe [::s/lyrics-delay])]
-    [:button.button.is-primary.is-small
+    [:button.button.is-primary
      {:disabled (nil? @selected)
       :on-click #(when-not (nil? @selected)
                    (rf/dispatch [::events/set-custom-song-delay @selected @delay]))}
      "remember song delay"]))
 
 (defn export-sync-data-btn []
-  [:button.button.is-info.is-small
+  [:button.button.is-info
    {:on-click (fn [_]
                 (utils/show-export-sync-info-modal))}
-   "export sync data"])
+   [:span.icon
+    [:i.fas.fa-file-export]]])
+    ;; "export sync data"]])
 
 (defn control-panel []
   (let [lyrics (rf/subscribe [::s/lyrics])
@@ -235,45 +237,73 @@
         lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])
         songs-visible? (rf/subscribe [::s/song-list-visible?])]
 
-    [:div.control-panel.tile.is-ancestor
-       {:class (if @(rf/subscribe [::s/song-paused?])
-                 ["song-paused"]
-                 ["song-playing"])}
-     [:div.tile.is-vertical.is-parent (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
-       [toggle-display-lyrics-link]
-       [delay-select]
-      [:div.tile.is-parent.is-vertical
-       [:p (str "current: " @current-song)]
-       [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]
-       (when (and
-              @lyrics
-              @display-lyrics?)
-         [lyrics-view @lyrics])
-       [:p
-        (str "lyrics loaded? ")
-        (if @lyrics-loaded?
-          [:span.tag.is-success "loaded"]
-          [:span.tag.is-danger "not loaded"])]]
-      [:div.tile.is-child
-       [:div.buttons.is-small
-        [:button.button.is-primary.is-small {:on-click #(load-song @current-song)}
-         [:span.icon
-          [:i.fas.fa-folder-open]]]
-        [:button.button.is-info.is-small {:on-click play}
-         [:span.icon
-          [:i.fas.fa-play]]]
-        [:button.button.is-warning.is-small.stop-btn {:on-click stop}
-         [:span.icon
-          [:i.fas.fa-stop]]]
-        [save-custom-delay-btn]
-        [export-sync-data-btn]
-        [toggle-song-list-btn]]]]
+    [:div.control-panel.columns
+     {:class (if @(rf/subscribe [::s/song-paused?])
+               ["song-paused"]
+               ["song-playing"])}
+     [:div.column (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
+      [toggle-display-lyrics-link]
+      [delay-select]
+      [:table.table.is-fullwidth
+       [:tbody
+        [:tr
+         [:td "current"] [:td
+                          (if-not (nil? @current-song)
+                            [:span.tag.is-info.is-normal
+                             @current-song]
+                            [:span.tag.is-danger.is-normal
+                             "no song selected"])]]
+                                 
+        [:tr
+         [:td "is paused?"] [:td (if @(rf/subscribe [::s/song-paused?]) "yes" "no")]]
+        [:tr
+         [:td "lyrics loaded?"] [:td (if @lyrics-loaded?
+                                       [:span.tag.is-success "loaded"]
+                                       [:span.tag.is-danger "not loaded"])]]]]
+      (comment
+        [:div.tile.is-parent.is-vertical
+         [:p (str "current: " @current-song)]
+         [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]
+         (when (and
+                @lyrics
+                @display-lyrics?)
+           [lyrics-view @lyrics])
+         [:p
+          (str "lyrics loaded? ")
+          (if @lyrics-loaded?
+            [:span.tag.is-success "loaded"]
+            [:span.tag.is-danger "not loaded"])]])
+      [:div.columns>div.column.is-12
+  
+       [:div.field.has-addons
+        [:div.control
+         [:button.button.is-primary {:on-click #(load-song @current-song)}
+           [:span.icon
+            [:i.fas.fa-folder-open]]]]
+        [:div.control
+         [:button.button.is-info {:on-click play}
+           [:span.icon
+            [:i.fas.fa-play]]]]
+        [:div.control
+         [:button.button.is-warning.stop-btn {:on-click stop}
+           [:span.icon
+            [:i.fas.fa-stop]]]]
+        [:div.control
+         [save-custom-delay-btn]]
+        [:div.control
+         [export-sync-data-btn]]
+        [:div.control
+         [toggle-song-list-btn]]]]]
+     (when @display-lyrics?
+       [:div.column (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
+        [lyrics-view @lyrics]])
      (when @songs-visible?
-       [:div.tile.is-vertical.is-child
-        [songs/song-table-component {:select-fn
-                                      (fn [s]
-                                        (rf/dispatch-sync [::events/set-current-song s])
-                                        (load-song @current-song))}]])]))
+       [:div.column
+        [songs/song-table-component
+         {:select-fn
+          (fn [s]
+            (rf/dispatch-sync [::events/set-current-song s])
+            (load-song @current-song))}]])]))
 
 (defn app []
   [:div.container.app
@@ -291,8 +321,6 @@
    (when-not @(rf/subscribe [::s/song-paused?])
      [:div.edge-progress-bar
       [song-progress]])])
-     
-
 
 (defn mount-components! []
   (reagent/render
