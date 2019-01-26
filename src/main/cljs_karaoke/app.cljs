@@ -360,7 +360,7 @@
                (println "esc pressed!")
                (when-not (nil? @(rf/subscribe [::s/player-status]))
                  (stop))))
-  (key/bind! "l-r" ::l-r-kb #(load-song)))
+  (key/bind! "l r" ::l-r-kb #(load-song)))
 
 
 

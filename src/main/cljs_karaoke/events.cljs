@@ -32,12 +32,13 @@
          :modals []}
     :dispatch-n [[::clock-event]
                  [::fetch-custom-delays]]}))
-(rf/reg-event-db
+(rf/reg-event-fx
  ::http-fetch-fail
  (fn-traced
-  [db [_ err]]
+  [db [_ err dispatch-n-vec]]
   (println "fetch failed" err)
-  db))
+  {:db db
+   :dispatch-n dispatch-n-vec}))
 
 (rf/reg-event-fx
  ::clock-event
@@ -58,7 +59,7 @@
                 :timeout 8000
                 :response-format (ajax/text-response-format)
                 :on-success [::handle-fetch-delays-success]
-                :on-failure [::http-fetch-fail]}}))
+                :on-failure [::http-fetch-fail [[::init-song-delays]]]}}))
 
 (rf/reg-event-fx
  ::handle-fetch-delays-success
