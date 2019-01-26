@@ -23,6 +23,6 @@
     "webaudiofont": "^2.5.47"
   },
   "devDependencies": {
-    "shadow-cljs": "^2.7.16"
+    "shadow-cljs": "^2.7.17"
   }
 }
