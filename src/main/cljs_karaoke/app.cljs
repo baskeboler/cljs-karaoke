@@ -288,12 +288,14 @@
          [:button.button.is-warning.stop-btn {:on-click stop}
            [:span.icon
             [:i.fas.fa-stop]]]]
-        [:div.control
-         [save-custom-delay-btn]]
+        
         [:div.control
          [export-sync-data-btn]]
         [:div.control
-         [toggle-song-list-btn]]]]]
+         [toggle-song-list-btn]]]
+       [:div.field
+        [:div.control
+         [save-custom-delay-btn]]]]]
      (when @display-lyrics?
        [:div.column (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
         [lyrics-view @lyrics]])
