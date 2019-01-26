@@ -54,17 +54,21 @@
        "hide lyrics"
        "show lyrics")]])
 
-(defn load-song [name]
-  (let [audio-path (str "mp3/" name ".mid.mp3")
-        lyrics-path (str "lyrics/" name ".edn")
-        audio (js/Audio. audio-path)]
-    (.play audio)
-    (.pause audio)
-    ;; (set! (.-volume audio) 0)
-    (rf/dispatch-sync [::events/set-current-song name])
-    (rf/dispatch-sync [::events/set-audio audio])
-    (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
-    (rf/dispatch-sync [::events/toggle-song-list-visible])))
+(defn load-song
+  ([name]
+   (let [audio-path (str "mp3/" name ".mid.mp3")
+         lyrics-path (str "lyrics/" name ".edn")
+         audio (js/Audio. audio-path)]
+     (.play audio)
+     (.pause audio)
+     ;; (set! (.-volume audio) 0)
+     (rf/dispatch-sync [::events/set-current-song name])
+     (rf/dispatch-sync [::events/set-audio audio])
+     (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
+     (rf/dispatch-sync [::events/toggle-song-list-visible])))
+  ([]
+   (let [song (rand-nth songs/song-list)]
+     (load-song song))))
 
 (defn return-after-timeout [obj delay]
   (let [ret-chan (chan)]
@@ -305,10 +309,7 @@
         [lyrics-view @lyrics]])
      (when @songs-visible?
        [:div.column
-        [songs/song-table-component
-         {:select-fn
-          (fn [s]
-            (secretary/dispatch! (str "/songs/" s)))}]])]))
+        [songs/song-table-component]])]))
             ;; (rf/dispatch-sync [::events/set-current-song s])
             ;; (load-song @current-song))}]])]))
 
@@ -345,7 +346,8 @@
 (defn init-routing! []
   (secretary/set-config! :prefix "#")
   (defroute "/" []
-    (println "home path"))
+    (println "home path")
+    (load-song))
   (defroute "/songs/:song" [song]
     (println "song: " song)
     (load-song song))

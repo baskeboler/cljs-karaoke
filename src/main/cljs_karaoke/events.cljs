@@ -217,13 +217,19 @@
   (-> db
       (update-in [:song-list :filter-verified?] not))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  ::modal-push
  (fn-traced
-  [db [_ modal]]
-  (-> db
-      (update :modals conj modal))))
+  [{:keys [db]} [_ modal]]
+  {:db (-> db
+           (update :modals conj modal))
+   :dispatch [::modal-activate]}))
 
+
+(rf/reg-event-db
+ ::modal-activate
+ (fn-traced
+  [db _] db))
 (rf/reg-event-db
  ::modal-pop
  (fn-traced

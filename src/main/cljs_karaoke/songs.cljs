@@ -321,7 +321,7 @@
      [:span.icon
       [:i.fas.fa-search]]]))
 (defn song-table-component
-  [{:keys [select-fn]}]
+  []
   (let [song-count (count song-list)
         current-page (rf/subscribe [::s/song-list-current-page])
         page-size (rf/subscribe [::s/song-list-page-size])
