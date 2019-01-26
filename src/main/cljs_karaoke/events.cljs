@@ -46,7 +46,7 @@
   [{:keys [db]} _]
   {:db (-> db
            (update :clock inc))
-   :dispatch-later [{:ms 500 :dispatch [::clock-event]}]}))
+   :dispatch-later [{:ms 5000 :dispatch [::clock-event]}]}))
             
 
 (rf/reg-event-fx
@@ -264,7 +264,7 @@
   (cljs.pprint/pprint opts)
   {:db db}))
 
-(def fetch-bg-from-web-enabled? true)
+(def fetch-bg-from-web-enabled? false)
 
 (rf/reg-event-fx
  ::fetch-bg

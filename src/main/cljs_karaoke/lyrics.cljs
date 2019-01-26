@@ -106,7 +106,14 @@
                frames))
 
 (defn preprocess-frames [frames]
-  (let [frames-2 (split-frames-if-necessary (vec frames))
+  (let [no-dupes (map (fn [fr]
+                        (let [events (->> (into #{} (:events fr))
+                                          vec
+                                          (sort-by :offset))]
+                          (-> fr
+                              (assoc :events events))))
+                      frames)
+        frames-2 (split-frames-if-necessary (vec no-dupes))
         with-offset
         #_(s/transform [s/ALL]
                      #(s/setval [:offset] (reduce min js/Number.MAX_VAL
