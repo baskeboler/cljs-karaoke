@@ -35,8 +35,8 @@
 (rf/reg-event-db
  ::http-fetch-fail
  (fn-traced
-  [db _]
-  (println "fetch failed")
+  [db [_ err]]
+  (println "fetch failed" err)
   db))
 
 (rf/reg-event-fx
@@ -255,7 +255,7 @@
                 :on-success callback-event
                 :on-failure [::print-arg]}}))          
 
-(rf/reg-event-db
+(rf/reg-event-fx
  ::print-arg
  (fn-traced
   [{:keys [db]} [_ & opts]]
