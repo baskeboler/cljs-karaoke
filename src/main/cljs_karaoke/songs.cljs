@@ -350,7 +350,7 @@
            [:tr {:key name}
             [:td title]
             [:td [:a
-                  {:href "#"
-                   :on-click #(select-fn name)}
+                  {:href (str "#/songs/" name)}
+                   ;; :on-click #(select-fn name)}
                   "Load song"]]])]]]]))
 

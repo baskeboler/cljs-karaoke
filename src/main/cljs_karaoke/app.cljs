@@ -11,8 +11,11 @@
             [cljs.reader :as reader]
             [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
             ;; ["midi.js"]
-            [stylefy.core :as stylefy]))
-
+            [stylefy.core :as stylefy]
+            [secretary.core :as secretary :refer-macros [defroute]]
+            [goog.events :as gevents]
+            [goog.history.EventType :as EventType])
+  (:import goog.History))
 (stylefy/init)
 
 (def wallpapers
@@ -58,9 +61,10 @@
     (.play audio)
     (.pause audio)
     ;; (set! (.-volume audio) 0)
-    (rf/dispatch [::events/set-audio audio])
-    (rf/dispatch [::events/fetch-lyrics name preprocess-frames])
-    (rf/dispatch [::events/toggle-song-list-visible])))
+    (rf/dispatch-sync [::events/set-current-song name])
+    (rf/dispatch-sync [::events/set-audio audio])
+    (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
+    (rf/dispatch-sync [::events/toggle-song-list-visible])))
 
 (defn return-after-timeout [obj delay]
   (let [ret-chan (chan)]
@@ -304,8 +308,9 @@
         [songs/song-table-component
          {:select-fn
           (fn [s]
-            (rf/dispatch-sync [::events/set-current-song s])
-            (load-song @current-song))}]])]))
+            (secretary/dispatch! (str "/songs/" s)))}]])]))
+            ;; (rf/dispatch-sync [::events/set-current-song s])
+            ;; (load-song @current-song))}]])]))
 
 (defn app []
   [:div.container.app
@@ -324,6 +329,7 @@
      [:div.edge-progress-bar
       [song-progress]])])
 
+
 (defn mount-components! []
   (reagent/render
    [app]
@@ -332,5 +338,18 @@
 (defn init! []
   (println "init!")
   (rf/dispatch-sync [::events/init-db])
-  (mount-components!))
+  (rf/dispatch-sync [::events/init-song-delays])
+  (mount-components!)
+  (init-routing!))
 
+(defn init-routing! []
+  (secretary/set-config! :prefix "#")
+  (defroute "/" []
+    (println "home path"))
+  (defroute "/songs/:song" [song]
+    (println "song: " song)
+    (load-song song))
+  ;; Quick and dirty history configuration.
+  (let [h (History.)]
+    (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
+    (doto h (.setEnabled true))))
