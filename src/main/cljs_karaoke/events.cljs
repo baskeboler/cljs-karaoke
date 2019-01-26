@@ -3,8 +3,10 @@
             [day8.re-frame.tracing :refer-macros [fn-traced]]
             [ajax.core :as ajax]
             [cljs.reader :as reader]
-            [cljs-karaoke.lyrics :refer [preprocess-frames]]))
-
+            [clojure.string :refer [replace]]
+            [cljs-karaoke.lyrics :refer [preprocess-frames]]
+            [cljs-karaoke.search :as search]))
+           
 
 (rf/reg-event-fx
  ::init-db
@@ -115,7 +117,8 @@
   [{:keys [db]} [_ song-name]]
   {:db (-> db
            (assoc :current-song song-name))
-   :dispatch [::set-lyrics-delay (get-in db [:custom-song-delay song-name] (get db :lyrics-delay))]}))
+   :dispatch-n [[::fetch-bg (replace song-name #"-|_" " ")] 
+                [::set-lyrics-delay (get-in db [:custom-song-delay song-name] (get db :lyrics-delay))]]}))
 
 (reg-set-attr ::set-player-status :player-status)
 (reg-set-attr ::set-highlight-status :highlight-status)
@@ -236,3 +239,56 @@
   [db _]
   (-> db
       (update :modals pop))))
+
+(rf/reg-event-fx
+ ::search-images
+ (fn-traced
+  [{:keys [db]} [_ q callback-event]]
+  {:db db
+   :http-xhrio {:method :get
+                :timeout 8000
+                :uri (str search/base-url
+                          "?cx="  search/ctx-id
+                          "&key=" search/api-key
+                          "&q=" q)
+                :response-format (ajax/json-response-format {:keywords? true})
+                :on-success callback-event
+                :on-failure [::print-arg]}}))          
+
+(rf/reg-event-db
+ ::print-arg
+ (fn-traced
+  [{:keys [db]} [_ & opts]]
+  (cljs.pprint/pprint opts)
+  {:db db}))
+
+(rf/reg-event-fx
+ ::fetch-bg
+ (fn-traced
+  [{:keys [db]} [_ title]]
+  {:db db
+   :dispatch [::search-images title [::handle-fetch-bg]]}))
+
+(rf/reg-event-fx
+ ::handle-fetch-bg
+ (fn-traced
+  [{:keys [db]} [_ res]]
+  (let [candidate-image (->> (map (comp first :imageobject :pagemap) (:items res))
+                             (filter (comp not nil?))
+                             first)]
+    {:db (if-not (nil? candidate-image)
+            (-> db
+                (assoc :bg-image (:url candidate-image)))
+            db)
+     :dispatch [::generate-bg-css (:url candidate-image)]})))
+             
+              
+(rf/reg-event-db
+ ::generate-bg-css
+ (fn-traced
+  [db [_ url]]
+  (-> db
+      (assoc :bg-style {:background-image (str "url(\"" url "\")")
+                        :background-size "cover"
+                        :transition "background-image 5s ease-out"}))))
+

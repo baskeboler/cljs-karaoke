@@ -156,3 +156,8 @@
  ::modals
  (fn [db _]
    (:modals db)))
+
+(rf/reg-sub
+ ::bg-style
+ (fn [db _]
+   (:bg-style db)))

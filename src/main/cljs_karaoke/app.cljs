@@ -14,7 +14,8 @@
             [stylefy.core :as stylefy]
             [secretary.core :as secretary :refer-macros [defroute]]
             [goog.events :as gevents]
-            [goog.history.EventType :as EventType])
+            [goog.history.EventType :as EventType]
+            [keybind.core :as key])
   (:import goog.History))
 (stylefy/init)
 
@@ -30,17 +31,19 @@
    :background-size "cover"
    :background-image (str "url(\"images/" (first wallpapers) "\")")})
 
-(def bg-style (atom parent-style))
+(def bg-style (rf/subscribe [::s/bg-style]))
 
-(go-loop [wps (cycle wallpapers)
-          _ (<! (timeout (* 60 1000)))]
-  (let [wp (first wps)
-        wps-2 (rest wps)
-        image-path (str "images/" wp)
-        new-style {:background-image (str "url(\"" image-path "\")")}]
-    (println "setting wp " wp)
-    (reset! bg-style new-style)
-    (recur wps-2 (<! (timeout (* 60 1000))))))
+(comment
+  (go-loop [wps (cycle wallpapers)]
+          _ (<! (timeout (* 60 1000)))
+   (let [wp (first wps)
+         wps-2 (rest wps)
+         image-path (str "images/" wp)
+         new-style {:background-image (str "url(\"" image-path "\")")}]
+     (println "setting wp " wp)
+     ;; (reset! bg-style new-style)
+     (rf/dispatch [::events/generate-bg-css wp])
+     (recur wps-2 (<! (timeout (* 60 1000)))))))
 
 (defn toggle-display-lyrics []
   (rf/dispatch [::events/toggle-display-lyrics]))
@@ -331,17 +334,6 @@
       [song-progress]])])
 
 
-(defn mount-components! []
-  (reagent/render
-   [app]
-   (. js/document (getElementById "root"))))
-
-(defn init! []
-  (println "init!")
-  (rf/dispatch-sync [::events/init-db])
-  (rf/dispatch-sync [::events/init-song-delays])
-  (mount-components!)
-  (init-routing!))
 
 (defn init-routing! []
   (secretary/set-config! :prefix "#")
@@ -355,3 +347,32 @@
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
     (doto h (.setEnabled true))))
+
+(defn init-keybindings! []
+  (key/bind! "ctrl-space"
+             ::ctrl-space-kb
+             (fn []
+               (println "ctrl-s pressed!")
+               false))
+  (key/bind! "esc"
+             ::esc-kb
+             (fn []
+               (println "esc pressed!")
+               (when-not (nil? @(rf/subscribe [::s/player-status]))
+                 (stop))))
+  (key/bind! "l-r" ::l-r-kb #(load-song)))
+
+
+
+(defn mount-components! []
+  (reagent/render
+   [app]
+   (. js/document (getElementById "root"))))
+
+(defn init! []
+  (println "init!")
+  (rf/dispatch-sync [::events/init-db])
+  (rf/dispatch-sync [::events/init-song-delays])
+  (mount-components!)
+  (init-routing!)
+  (init-keybindings!))
