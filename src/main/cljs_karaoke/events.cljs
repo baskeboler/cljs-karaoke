@@ -175,13 +175,14 @@
  ::play
  (rf/after (fn [{:keys [db]} [_ audio lyrics status]]
               (.play audio)))
- (fn-traced [{:keys [db]} [_ audio lyrics status]]
-            {:dispatch-n [[::set-lyrics lyrics]
-                          [::set-audio audio]
-                          [::set-player-status status]]
-             :db (-> db
-                     (assoc :playing? true)
-                     (assoc :player-status status))}))
+ (fn-traced
+  [{:keys [db]} [_ audio lyrics status]]
+  {:dispatch-n [[::set-lyrics lyrics]
+                [::set-audio audio]
+                [::set-player-status status]]
+   :db (-> db
+           (assoc :playing? true)
+           (assoc :player-status status))}))
 
 (defn highlight-if-same-id [id]
   (fn [evt]
@@ -263,20 +264,23 @@
   (cljs.pprint/pprint opts)
   {:db db}))
 
+(def fetch-bg-from-web-enabled? true)
+
 (rf/reg-event-fx
  ::fetch-bg
  (fn-traced
   [{:keys [db]} [_ title]]
-  {:db db
-   :dispatch [::search-images title [::handle-fetch-bg]]}))
+  (merge
+   {:db db}
+   (if fetch-bg-from-web-enabled?
+     {:dispatch [::search-images title [::handle-fetch-bg]]}
+     {}))))
 
 (rf/reg-event-fx
  ::handle-fetch-bg
  (fn-traced
   [{:keys [db]} [_ res]]
-  (let [candidate-image (->> (map (comp first :imageobject :pagemap) (:items res))
-                             (filter (comp not nil?))
-                             first)]
+  (let [candidate-image (search/extract-candidate-image res)]
     {:db (if-not (nil? candidate-image)
             (-> db
                 (assoc :bg-image (:url candidate-image)))
