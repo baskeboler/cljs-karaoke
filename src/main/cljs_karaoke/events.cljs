@@ -7,6 +7,7 @@
             [cljs-karaoke.lyrics :refer [preprocess-frames]]
             [cljs-karaoke.search :as search]))
            
+(def fetch-bg-from-web-enabled? true)
 
 (rf/reg-event-fx
  ::init-db
@@ -15,7 +16,7 @@
          :lyrics nil
          :lyrics-loaded? false
          :lyrics-fetching? false
-         :lyrics-delay 1000
+         :lyrics-delay -1000
          :audio nil
          :display-lyrics? false
          :current-song nil
@@ -24,6 +25,7 @@
          :playing? false
          :clock 0
          :custom-song-delay {}
+         :song-backgrounds {}
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
@@ -31,7 +33,8 @@
                      :visible? true}
          :modals []}
     :dispatch-n [[::clock-event]
-                 [::fetch-custom-delays]]}))
+                 [::fetch-custom-delays
+                  ::init-song-bg-cache]]}))
 (rf/reg-event-fx
  ::http-fetch-fail
  (fn-traced
@@ -82,6 +85,13 @@
   (-> (. js/localStorage (getItem "custom-song-delays"))
       (js/JSON.parse)
       (js->clj)))
+(defn save-to-localstore [name obj]
+  (. js/localStorage (setItem name (js/JSON.stringify (clj->js obj)))))
+
+(defn get-from-localstorage [name]
+  (-> (. js/localStorage (getItem name))
+      (js/JSON.parse)
+      (js->clj)))
 
 (rf/reg-event-db
  ::init-song-delays
@@ -94,6 +104,17 @@
                                              (:custom-song-delay db)
                                              {})
                                            delays)))
+      db))))
+
+(rf/reg-event-db
+ ::init-song-bg-cache
+ (fn-traced
+  [db _]
+  (let [cache (get-from-localstorage "song-bg-cache")]
+    (if-not (nil? cache)
+      (-> db
+          (update :song-backgrounds
+                  merge cache))
       db))))
 
 (reg-set-attr ::set-current-frame :current-frame)
@@ -118,7 +139,7 @@
   [{:keys [db]} [_ song-name]]
   {:db (-> db
            (assoc :current-song song-name))
-   :dispatch-n [[::fetch-bg (replace song-name #"-|_" " ")] 
+   :dispatch-n [[::fetch-bg song-name] 
                 [::set-lyrics-delay (get-in db [:custom-song-delay song-name] (get db :lyrics-delay))]]}))
 
 (reg-set-attr ::set-player-status :player-status)
@@ -235,6 +256,7 @@
  ::modal-activate
  (fn-traced
   [db _] db))
+
 (rf/reg-event-db
  ::modal-pop
  (fn-traced
@@ -264,17 +286,20 @@
   (cljs.pprint/pprint opts)
   {:db db}))
 
-(def fetch-bg-from-web-enabled? false)
 
 (rf/reg-event-fx
  ::fetch-bg
  (fn-traced
   [{:keys [db]} [_ title]]
-  (merge
-   {:db db}
-   (if fetch-bg-from-web-enabled?
-     {:dispatch [::search-images title [::handle-fetch-bg]]}
-     {}))))
+  (let [cached (get-in db [:song-backgrounds title] nil)]
+    (merge
+      {:db db}
+      (cond
+        (not (nil? cached))
+        {:dispatch [::generate-bg-css cached]}
+        (= true fetch-bg-from-web-enabled?)
+        {:dispatch [::search-images title [::handle-fetch-bg]]}
+        :else {})))))
 
 (rf/reg-event-fx
  ::handle-fetch-bg
@@ -285,8 +310,8 @@
             (-> db
                 (assoc :bg-image (:url candidate-image)))
             db)
-     :dispatch [::generate-bg-css (:url candidate-image)]})))
-             
+     :dispatch-n [[::generate-bg-css (:url candidate-image)]
+                  [::cache-song-bg (:current-song db) (:url candidate-image)]]})))
               
 (rf/reg-event-db
  ::generate-bg-css
@@ -297,3 +322,20 @@
                         :background-size "cover"
                         :transition "background-image 5s ease-out"}))))
 
+(rf/reg-event-fx
+ ::cache-song-bg
+ (fn-traced
+  [{:keys [db]} [_ song-name bg-url]]
+  {:db (-> db
+           (assoc-in [:song-backgrounds song-name] bg-url))
+   :dispatch [::save-to-localstorage "song-bg-cache"
+              (-> db
+                  (assoc-in [:song-backgrounds song-name] bg-url)
+                  :song-backgrounds)]}))
+
+(rf/reg-event-fx
+ ::save-to-localstorage
+ (fn-traced
+  [{:keys [db]} [_ name obj]]
+  (save-to-localstore name obj)
+  {:db db}))

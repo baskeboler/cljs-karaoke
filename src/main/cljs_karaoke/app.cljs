@@ -373,6 +373,7 @@
   (println "init!")
   (rf/dispatch-sync [::events/init-db])
   (rf/dispatch-sync [::events/init-song-delays])
+  (rf/dispatch-sync [::events/init-song-bg-cache])
   (mount-components!)
   (init-routing!)
   (init-keybindings!))

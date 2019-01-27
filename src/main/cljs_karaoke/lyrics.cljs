@@ -50,7 +50,13 @@
   (str/trim (:text evt)))
 
 (defn- partition-fn [evt]
-  (not (str/ends-with? (event-text evt) ".")))
+  (or
+   (str/starts-with? (event-text evt) "/")
+   (str/starts-with? (event-text evt) "\\")
+   (not (or
+         (str/ends-with? (event-text evt) ".")
+         (str/ends-with? (event-text evt) "?")
+         (str/ends-with? (event-text evt) "!")))))
 
 (defn- partition-events [events]
   (loop [res []
