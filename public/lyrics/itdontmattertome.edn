@@ -1,0 +1,1 @@
+({:type :frame-event, :ticks 960, :events ({:type :lyrics-event, :offset 3200.0, :ticks 960, :text "VERSE"} {:type :lyrics-event, :offset 54400.0, :ticks 16320, :text "BRIDGE"}), :offset 3200.0})

@@ -1,0 +1,1 @@
+({:type :frame-event, :ticks 4800, :events ({:type :lyrics-event, :offset 14117.639455832381, :ticks 4800, :text "VERSE"} {:type :lyrics-event, :offset 104470.53197315961, :ticks 35520, :text "2ND"}), :offset 14117.639455832381})
