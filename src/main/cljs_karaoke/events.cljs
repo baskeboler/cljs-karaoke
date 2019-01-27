@@ -46,7 +46,7 @@
   [{:keys [db]} _]
   {:db (-> db
            (update :clock inc))
-   :dispatch-later [{:ms 5000 :dispatch [::clock-event]}]}))
+   :dispatch-later [{:ms 2000 :dispatch [::clock-event]}]}))
             
 
 (rf/reg-event-fx

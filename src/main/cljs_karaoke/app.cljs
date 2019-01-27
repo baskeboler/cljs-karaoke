@@ -59,7 +59,7 @@
 
 (defn load-song
   ([name]
-   (let [audio-path (str "mp3/" name ".mid.mp3")
+   (let [audio-path (str "mp3/" name ".mp3")
          lyrics-path (str "lyrics/" name ".edn")
          audio (js/Audio. audio-path)]
      (.play audio)

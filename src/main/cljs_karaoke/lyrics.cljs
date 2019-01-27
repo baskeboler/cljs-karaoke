@@ -4,7 +4,7 @@
             [com.rpl.specter :as s :include-macros true]))
             ;; [cljs.core :as core :refer [random-uuid]]))
 
-
+(def *print-length* nil)
 
 (defn set-event-id [event]
   (if-not (:id event)

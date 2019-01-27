@@ -28,7 +28,7 @@
         :modules {:main {:init-fn cljs-karaoke.app/init!}}
         :devtools {:http-port 8089
                    :http-root "public"
-                   :preloads [day8.re-frame-10x.preload]
+                   :preloads [devtools.preload day8.re-frame-10x.preload]
                    :after-load cljs-karaoke.app/init!}
         :dev {:compiler-options
               {:closure-defines
