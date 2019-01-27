@@ -10,4 +10,4 @@ before_install:
 install:
   - npm install
 
-script: node run release
+script: npm run release
