@@ -15,14 +15,11 @@
   "license": "ISC",
   "dependencies": {
     "create-react-class": "^15.6.3",
-    "midi": "^0.9.5",
-    "midi.js": "^0.3.1",
     "path": "^0.12.7",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
     "react-flip-move": "^3.0.3",
-    "react-highlight.js": "^1.0.7",
-    "webaudiofont": "^2.5.47"
+    "react-highlight.js": "^1.0.7"
   },
   "devDependencies": {
     "shadow-cljs": "^2.7.17"
