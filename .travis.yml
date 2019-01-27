@@ -1,0 +1,8 @@
+language: clojure
+
+git:
+  depth: 1
+
+before_script:
+  - npm install shadow-cljs -g
+script: npm run release
