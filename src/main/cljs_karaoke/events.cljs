@@ -184,8 +184,8 @@
  (fn-traced
   [db [_ lyrics]]
   (let [l (-> lyrics
-              (reader/read-string)
-              (preprocess-frames))]
+              (reader/read-string))]
+              ;; (preprocess-frames))]
     
      (-> db
          (assoc :lyrics l)

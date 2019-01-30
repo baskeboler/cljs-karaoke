@@ -5,9 +5,10 @@
             ;; [cljs.core :as core :refer [random-uuid]]))
 
 (def *print-length* nil)
+(def frame-text-limit 128)
 
 (defn set-event-id [event]
-  (if-not (:id event)
+  (if-not (nil? (:id event))
     (assoc event :id (random-uuid))
     event))
 
@@ -47,30 +48,47 @@
    (vec frames)))
 
 (defn- event-text [evt]
-  (str/trim (:text evt)))
+  (if-not (or
+           (nil? evt)
+           (nil? (:text evt)))
+    (str/trim (:text evt))
+    ""))
 
 (defn- partition-fn [evt]
-  (or
-   (str/starts-with? (event-text evt) "/")
-   (str/starts-with? (event-text evt) "\\")
    (not (or
+         (str/starts-with? (event-text evt) "\\")
+         (str/starts-with? (event-text evt) "/")
          (str/ends-with? (event-text evt) ".")
          (str/ends-with? (event-text evt) "?")
-         (str/ends-with? (event-text evt) "!")))))
+         (str/ends-with? (event-text evt) "!"))))
 
 (defn- partition-events [events]
-  (loop [res []
-         events-1 events]
-    (let [[new-grp rst] (split-with partition-fn events-1)
-          new-grp (concat (vec new-grp) (take-while (comp not partition-fn) rst))
-          new-rst (drop-while (comp not partition-fn) rst)]
-      (if  (and (empty? new-grp)
-                (empty? new-rst))
-        res
-        (recur (conj res new-grp) new-rst)))))
+    (loop [res []
+           events-1 events]
+      (let [[new-grp rst] (split-with partition-fn events-1)
+            new-grp (concat res (take-while (comp not partition-fn) rst))
+            new-rst (drop-while (comp not partition-fn) rst)]
+            ;; new-rst rst]
+        (if  (and (empty? new-grp)
+                  (empty? new-rst))
+          res
+          (recur (conj res new-grp) new-rst)))))
 
 
-(def frame-text-limit 64)
+(defn- partition-events-2 [events]
+  (reduce
+   (fn [res evt]
+     (let [last-grp (last res)
+           last-grp-length (reduce + 0 (map event-text last-grp))]
+       (if (< last-grp-length frame-text-limit)
+         (let [new-last (conj last-grp evt)
+               new-res (conj (-> res
+                                 reverse rest reverse vec)
+                             new-last)]
+           new-res)
+         (concat res [[evt]]))))
+   [[]] events))
+
 (defn frame-text-string [frame]
   (let [events (:events frame)]
     (->> events
@@ -86,8 +104,8 @@
    :offset (reduce min js/Number.MAX_VALUE (map :offset (vec grp)))})
 
 (defn split-frame [frame]
-  (let [grps (partition-events (:events frame))
-        frames (map build-frame grps)]
+  (let [grps (partition-events-2 (:events frame))
+        frames (mapv build-frame grps)]
     frames))
 
 (defn needs-split? [frame]
@@ -112,31 +130,29 @@
                frames))
 
 (defn preprocess-frames [frames]
-  (let [no-dupes (map (fn [fr]
-                        (let [events (->> (into #{} (:events fr))
-                                          vec
-                                          (sort-by :offset))]
-                          (-> fr
-                              (assoc :events events))))
-                      frames)
-        frames-2 (split-frames-if-necessary (vec no-dupes))
+  (let [no-dupes
+        (map (fn [fr]
+               (let [events (->> (into #{} (:events fr))
+                                 vec
+                                 (sort-by :offset))]
+                    (-> fr
+                        (assoc :events events))))
+             frames)
+       frames-2 (split-frames-if-necessary (vec no-dupes))
         with-offset
-        #_(s/transform [s/ALL]
-                     #(s/setval [:offset] (reduce min js/Number.MAX_VAL
-                                                  (s/select [s/ALL :events s/ALL :offset] %))
-                                %)
-                     frames-2)
         (mapv (fn [fr]
-                  (-> fr
-                      (assoc :offset
-                              (reduce min 1000000
-                                      (map :offset (:events fr))))))
-                   ;; (- 10000)
+                (-> fr
+                    (assoc :offset
+                           (reduce min 1000000
+                                   (map :offset (:events fr))))))
               frames-2)
-        with-relative-events (mapv
-                              #(-> %
-                                   (update :events
-                                           (update-events-to-relative-offset-with-id (:offset %)))) with-offset)]
+        with-relative-events        (mapv
+                                     (fn [frame]
+                                       (-> frame
+                                           (update :events
+                                                   (update-events-to-relative-offset-with-id
+                                                    (:offset %)))
+                                           with-offset)))]
     ;; frames-2
     (-> with-relative-events
         (to-relative-frame-offsets))))
