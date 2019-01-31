@@ -340,9 +340,13 @@
   (defroute "/" []
     (println "home path")
     (load-song))
-  (defroute "/songs/:song" [song]
+  (defroute "/songs/:song"
+    [song query-params]
     (println "song: " song)
-    (load-song song))
+    (println "query params: " query-params)
+    (load-song song)
+    (when-some [offset (:offset query-params)]
+      (rf/dispatch [::events/set-lyrics-delay (long offset)])))
   ;; Quick and dirty history configuration.
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
