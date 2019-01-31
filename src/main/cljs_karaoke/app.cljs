@@ -357,8 +357,8 @@
        centered
        {:on-click
         #(if-let [song @(rf/subscribe [::s/current-song])]
-           (load song)
-           (load))})
+           (load-song song)
+           (load-song))})
       [:span.icon
        [:i.fas.fa-sync.fa-5x]]])
       
