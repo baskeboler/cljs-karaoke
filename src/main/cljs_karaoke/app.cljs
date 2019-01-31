@@ -70,6 +70,7 @@
      (.play audio)
      (.pause audio)
      ;; (set! (.-volume audio) 0)
+     (rf/dispatch [::events/set-current-view :playback])
      (rf/dispatch-sync [::events/set-current-song name])
      (rf/dispatch-sync [::events/set-audio audio])
      (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
@@ -317,7 +318,63 @@
        [:div.column
         [song-table-component]])]))
 
-(defn app []
+(def centered {:position :fixed
+               :display :block
+               :top "50%"
+               :left "50%"
+               :transform "translate(-50%, -50%)"})
+(def top-left {:position :fixed
+               :display :block
+               :top 0
+               :left 0
+               :margin "2em 2em"})
+
+(defn playback-view []
+  [:div.container.app
+   [utils/modals-component]
+   [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
+   [current-frame-display]
+   ;; [control-panel]
+   (when (and
+          @(rf/subscribe [::s/song-paused?])
+          @(rf/subscribe [::s/can-play?]))
+     [:div
+      [:a
+       (stylefy/use-style
+        top-left
+        {:on-click #(rf/dispatch [::events/set-current-view :home])})
+       [:span.icon
+        [:i.fas.fa-cog.fa-3x]]]
+      [:a
+        (stylefy/use-style
+         centered
+         {:on-click play})
+        [:span.icon
+         [:i.fas.fa-play.fa-5x]]]])
+   (when-not @(rf/subscribe [::s/can-play?])
+     [:a
+      (stylefy/use-style
+       centered
+       {:on-click
+        #(if-let [song @(rf/subscribe [::s/current-song])]
+           (load song)
+           (load))})
+      [:span.icon
+       [:i.fas.fa-sync.fa-5x]]])
+      
+      
+   [:button.button.is-danger.edge-stop-btn
+    {:class (if @(rf/subscribe [::s/song-paused?])
+              []
+              ["song-playing"])
+     :on-click stop}
+    [:span.icon
+     [:i.fas.fa-stop]]]
+   (when-not @(rf/subscribe [::s/song-paused?])
+     [:div.edge-progress-bar
+      [song-progress]])])
+
+(defn default-view []
   [:div.container.app
    [utils/modals-component]
    [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
@@ -333,6 +390,11 @@
    (when-not @(rf/subscribe [::s/song-paused?])
      [:div.edge-progress-bar
       [song-progress]])])
+
+(defn app []
+  (condp = @(rf/subscribe [::s/current-view])
+    :home [default-view]
+    :playback [playback-view]))
 
 (defn init-routing! []
   (secretary/set-config! :prefix "#")

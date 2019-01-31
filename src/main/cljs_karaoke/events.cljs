@@ -27,6 +27,7 @@
          :clock 0
          :custom-song-delay {}
          :song-backgrounds {}
+         :current-view :home
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
@@ -125,6 +126,7 @@
 (reg-set-attr ::set-lyrics-loaded? :lyrics-loaded?)
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
 (reg-set-attr ::set-can-play? :can-play?)
+(reg-set-attr ::set-current-view :current-view)
 
 (rf/reg-event-db
  ::toggle-display-lyrics

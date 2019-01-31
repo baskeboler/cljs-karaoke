@@ -166,3 +166,8 @@
  ::can-play?
  (fn [db _]
    (:can-play? db)))
+
+(rf/reg-sub
+ ::current-view
+ (fn [db _]
+   (:current-view db)))
