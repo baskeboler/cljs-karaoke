@@ -21,6 +21,7 @@
          :display-lyrics? false
          :current-song nil
          :player-status nil
+         :can-play? false
          :highlight-status nil
          :playing? false
          :clock 0
@@ -123,6 +124,7 @@
 (reg-set-attr ::set-lyrics-delay :lyrics-delay)
 (reg-set-attr ::set-lyrics-loaded? :lyrics-loaded?)
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
+(reg-set-attr ::set-can-play? :can-play?)
 
 (rf/reg-event-db
  ::toggle-display-lyrics
@@ -339,3 +341,4 @@
   [{:keys [db]} [_ name obj]]
   (save-to-localstore name obj)
   {:db db}))
+

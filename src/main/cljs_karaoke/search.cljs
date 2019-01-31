@@ -8,12 +8,6 @@
 (def ctx-id "007074704954011898567:vq4nmfwmtgc")
 
 (def search-resp (atom nil))
-#_(ajax/GET (str base-url
-               "?cx=" ctx-id
-               "&key="  api-key
-               "&q=listen to your heart")
-          {:handler #(reset! search-resp %)
-           :response-format (ajax.json/json-response-format {:keywords? true})})
 
 (defn is-bigger? [im1 im2]
   (let [s1 (* (:height im1) (:width im1))
@@ -28,11 +22,9 @@
     (->> candidate-images
          (sort image-comparator)
          first)))
-        
 
 (defn do-test-fetch-handle [res-chan]
   (fn [res]
-    ;; (println "Result: " candidate-images)
     (async/put! res-chan (extract-candidate-image res))))
 
 (defn query-url [q]

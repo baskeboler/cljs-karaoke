@@ -161,3 +161,8 @@
  ::bg-style
  (fn [db _]
    (:bg-style db)))
+
+(rf/reg-sub
+ ::can-play?
+ (fn [db _]
+   (:can-play? db)))

@@ -10,7 +10,6 @@
             [cljs-karaoke.lyrics :as l :refer [preprocess-frames]]
             [cljs.reader :as reader]
             [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
-            ;; ["midi.js"]
             [stylefy.core :as stylefy]
             [secretary.core :as secretary :refer-macros [defroute]]
             [goog.events :as gevents]
@@ -35,15 +34,15 @@
 
 (comment
   (go-loop [wps (cycle wallpapers)]
-          _ (<! (timeout (* 60 1000)))
-   (let [wp (first wps)
-         wps-2 (rest wps)
-         image-path (str "images/" wp)
-         new-style {:background-image (str "url(\"" image-path "\")")}]
-     (println "setting wp " wp)
+    _ (<! (timeout (* 60 1000)))
+    (let [wp (first wps)
+          wps-2 (rest wps)
+          image-path (str "images/" wp)
+          new-style {:background-image (str "url(\"" image-path "\")")}]
+      (println "setting wp " wp)
      ;; (reset! bg-style new-style)
-     (rf/dispatch [::events/generate-bg-css wp])
-     (recur wps-2 (<! (timeout (* 60 1000)))))))
+      (rf/dispatch [::events/generate-bg-css wp])
+      (recur wps-2 (<! (timeout (* 60 1000)))))))
 
 (defn toggle-display-lyrics []
   (rf/dispatch [::events/toggle-display-lyrics]))
@@ -51,17 +50,23 @@
 (defn toggle-display-lyrics-link []
   [:div.field>div.control
    [:a.button.is-info
-     {:href "#"
-      :on-click toggle-display-lyrics}
-     (if @(rf/subscribe [::s/display-lyrics?])
-       "hide lyrics"
-       "show lyrics")]])
+    {:href "#"
+     :on-click toggle-display-lyrics}
+    (if @(rf/subscribe [::s/display-lyrics?])
+      "hide lyrics"
+      "show lyrics")]])
 
 (defn load-song
   ([name]
+   (rf/dispatch [::events/set-can-play? false])
    (let [audio-path (str "mp3/" name ".mp3")
          lyrics-path (str "lyrics/" name ".edn")
          audio (js/Audio. audio-path)]
+     (.. audio (addEventListener
+                "canplaythrough"
+                (fn []
+                  (println "media is ready!")
+                  (rf/dispatch [::events/set-can-play? true]))))
      (.play audio)
      (.pause audio)
      ;; (set! (.-volume audio) 0)
@@ -197,6 +202,7 @@
 
 (defn stop []
   (let [audio (rf/subscribe [::s/audio])
+        current (rf/subscribe [::s/current-song])
         highlight-status (rf/subscribe [::s/highlight-status])
         player-status (rf/subscribe [::s/player-status])]
     (.pause @audio)
@@ -209,7 +215,9 @@
     (when-not (nil? @highlight-status)
       (async/close! @highlight-status))
     (rf/dispatch-sync [::events/set-highlight-status nil])
-    (rf/dispatch-sync [::events/set-player-status nil])))
+    (rf/dispatch-sync [::events/set-player-status nil])
+    ;; reload the song so we can play it again
+    (load-song @current)))
 
 (defn toggle-song-list-btn []
   (let [visible? (rf/subscribe [::s/song-list-visible?])]
@@ -222,8 +230,8 @@
       :on-click #(rf/dispatch [::events/toggle-song-list-visible])}
      [:span.icon
       (if @visible?
-       [:i.fas.fa-eye-slash];"Hide songs"
-       [:i.fas.fa-eye])]])) ;"Show song list")]]))
+        [:i.fas.fa-eye-slash];"Hide songs"
+        [:i.fas.fa-eye])]])) ;"Show song list")]]))
 (defn save-custom-delay-btn []
   (let [selected (rf/subscribe [::s/current-song])
         delay (rf/subscribe [::s/lyrics-delay])]
@@ -241,13 +249,34 @@
     [:i.fas.fa-file-export]]])
     ;; "export sync data"]])
 
+(defn info-table []
+  (let [current-song (rf/subscribe [::s/current-song])
+        lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])]
+    [:table.table.is-fullwidth
+     [:tbody
+      [:tr
+       [:td "current"] [:td
+                        (if-not (nil? @current-song)
+                          [:span.tag.is-info.is-normal
+                           @current-song]
+                          [:span.tag.is-danger.is-normal
+                           "no song selected"])]]
+      [:tr
+       [:td "is paused?"]
+       [:td (if @(rf/subscribe [::s/song-paused?]) "yes" "no")]]
+      [:tr
+       [:td "lyrics loaded?"]
+       [:td (if @lyrics-loaded?
+              [:span.tag.is-success "loaded"]
+              [:span.tag.is-danger "not loaded"])]]]]))
+
 (defn control-panel []
   (let [lyrics (rf/subscribe [::s/lyrics])
         display-lyrics? (rf/subscribe [::s/display-lyrics?])
         current-song (rf/subscribe [::s/current-song])
         lyrics-loaded? (rf/subscribe [::s/lyrics-loaded?])
-        songs-visible? (rf/subscribe [::s/song-list-visible?])]
-
+        song-list-visible? (rf/subscribe [::s/song-list-visible?])
+        can-play? (rf/subscribe [::s/can-play?])]
     [:div.control-panel.columns
      {:class (if @(rf/subscribe [::s/song-paused?])
                ["song-paused"]
@@ -255,51 +284,25 @@
      [:div.column (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
       [toggle-display-lyrics-link]
       [delay-select]
-      [:table.table.is-fullwidth
-       [:tbody
-        [:tr
-         [:td "current"] [:td
-                          (if-not (nil? @current-song)
-                            [:span.tag.is-info.is-normal
-                             @current-song]
-                            [:span.tag.is-danger.is-normal
-                             "no song selected"])]]
-                                 
-        [:tr
-         [:td "is paused?"] [:td (if @(rf/subscribe [::s/song-paused?]) "yes" "no")]]
-        [:tr
-         [:td "lyrics loaded?"] [:td (if @lyrics-loaded?
-                                       [:span.tag.is-success "loaded"]
-                                       [:span.tag.is-danger "not loaded"])]]]]
-      (comment
-        [:div.tile.is-parent.is-vertical
-         [:p (str "current: " @current-song)]
-         [:p (str " paused? " (if @(rf/subscribe [::s/song-paused?]) "yes" "no"))]
-         (when (and
-                @lyrics
-                @display-lyrics?)
-           [lyrics-view @lyrics])
-         [:p
-          (str "lyrics loaded? ")
-          (if @lyrics-loaded?
-            [:span.tag.is-success "loaded"]
-            [:span.tag.is-danger "not loaded"])]])
+      [info-table]
       [:div.columns>div.column.is-12
-  
        [:div.field.has-addons
         [:div.control
          [:button.button.is-primary {:on-click #(load-song @current-song)}
-           [:span.icon
-            [:i.fas.fa-folder-open]]]]
+          [:span.icon
+           [:i.fas.fa-folder-open]]]]
         [:div.control
-         [:button.button.is-info {:on-click play}
-           [:span.icon
-            [:i.fas.fa-play]]]]
+         [:button.button.is-info
+          (if @can-play?
+           {:on-click play}
+           {:disabled true})
+          [:span.icon
+           [:i.fas.fa-play]]]]
         [:div.control
-         [:button.button.is-warning.stop-btn {:on-click stop}
-           [:span.icon
-            [:i.fas.fa-stop]]]]
-        
+         [:button.button.is-warning.stop-btn
+          {:on-click stop}
+          [:span.icon
+           [:i.fas.fa-stop]]]]
         [:div.control
          [export-sync-data-btn]]
         [:div.control
@@ -310,11 +313,9 @@
      (when @display-lyrics?
        [:div.column (stylefy/use-style {:background-color "rgba(1,1,1, .3)"})
         [lyrics-view @lyrics]])
-     (when @songs-visible?
+     (when @song-list-visible?
        [:div.column
-        [songs/song-table-component]])]))
-            ;; (rf/dispatch-sync [::events/set-current-song s])
-            ;; (load-song @current-song))}]])]))
+        [song-table-component]])]))
 
 (defn app []
   [:div.container.app
@@ -333,8 +334,6 @@
      [:div.edge-progress-bar
       [song-progress]])])
 
-
-
 (defn init-routing! []
   (secretary/set-config! :prefix "#")
   (defroute "/" []
@@ -346,7 +345,8 @@
     (println "query params: " query-params)
     (load-song song)
     (when-some [offset (:offset query-params)]
-      (rf/dispatch [::events/set-lyrics-delay (long offset)])))
+      (rf/dispatch [::events/set-lyrics-delay (long offset)])
+      (rf/dispatch [::events/set-custom-song-delay song (long offset)])))
   ;; Quick and dirty history configuration.
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
@@ -366,8 +366,6 @@
                  (stop))))
   (key/bind! "l r" ::l-r-kb #(load-song)))
 
-
-
 (defn mount-components! []
   (reagent/render
    [app]
@@ -381,3 +379,4 @@
   (mount-components!)
   (init-routing!)
   (init-keybindings!))
+
