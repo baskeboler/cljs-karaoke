@@ -33,10 +33,9 @@
     opacity: 0.6;
     transition: all 0.2s ease-out;
     color: black;
-    font-family: 'Trocchi', serif;
-
-    text-shadow: 0 0 15px white, 0 0 5px yellow;
-    
+    /* font-family: 'Trocchi', serif; */
+    font-family: 'Bangers', cursive;
+    text-shadow:  0 0 5px yellow;
 }
 .current-frame .frame-text > span.highlighted {
     color: red;
