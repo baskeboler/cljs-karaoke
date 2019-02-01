@@ -1,5 +1,7 @@
 .current-frame  {
     position: fixed;
+    width: 90%;
+    text-align: center;
     font-size: 1.4em;
     top: 50%;
     left: 50%;
@@ -44,6 +46,9 @@
     transform: translate(10px, 50px);
 }
 
+.current-frame .frame-text > span.highlighted .icon {
+    color: black;
+}
 .contorl-panel {
     transition: all 2s ease-out;
  

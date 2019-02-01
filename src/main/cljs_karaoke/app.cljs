@@ -8,13 +8,15 @@
             [cljs-karaoke.utils :as utils :refer [show-export-sync-info-modal]]
             [cljs-karaoke.songs :as songs :refer [song-table-component]]
             [cljs-karaoke.lyrics :as l :refer [preprocess-frames]]
+            [cljs-karaoke.audio :as aud :refer [setup-audio-listeners]]
             [cljs.reader :as reader]
             [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
             [stylefy.core :as stylefy]
             [secretary.core :as secretary :refer-macros [defroute]]
             [goog.events :as gevents]
             [goog.history.EventType :as EventType]
-            [keybind.core :as key])
+            [keybind.core :as key]
+            [clojure.string :as str])
   (:import goog.History))
 (stylefy/init)
 
@@ -61,12 +63,18 @@
    (rf/dispatch [::events/set-can-play? false])
    (let [audio-path (str "mp3/" name ".mp3")
          lyrics-path (str "lyrics/" name ".edn")
-         audio (js/Audio. audio-path)]
-     (.. audio (addEventListener
+         audio (js/Audio. audio-path)
+         audio-events (aud/setup-audio-listeners audio)]
+     (rf/dispatch [::events/set-audio-events audio-events])
+     #_(.. audio (addEventListener)
                 "canplaythrough"
                 (fn []
                   (println "media is ready!")
-                  (rf/dispatch [::events/set-can-play? true]))))
+                  (rf/dispatch [::events/set-can-play? true])))
+     (go-loop [e (<! audio-events)]
+       (when-not (nil? e)
+         (aud/process-audio-event e)
+         (recur (<! audio-events))))
      (.play audio)
      (.pause audio)
      ;; (set! (.-volume audio) 0)
@@ -176,12 +184,24 @@
                     :value v}
            v])]]]]))
 
+(defn- clean-text [t]
+  (-> t
+      (str/replace #"/" "")
+      (str/replace #"\\" "")))
+(defn- leading? [t]
+  (or (str/starts-with? t "/")
+      (str/starts-with? t "\\")))
+
+(defn leading-icon []
+  [:span.icon (stylefy/use-style {:margin "0 0.5em"})
+   [:i.fas.fa-music.fa-fw]])
 (defn frame-text [frame]
   [:div.frame-text
-   (for [e (vec (:events frame))]
+   (for [e (vec (:events frame))
+         :let [span-text (clean-text (:text e))]]
      [:span {:key (str "evt_" (:id e))
              :class (if (:highlighted? e) ["highlighted"] [])}
-      (:text e)])])
+      (when (leading? (:text e)) [leading-icon]) span-text])])
 
 (defn lyrics-view [lyrics]
   [:div.tile.is-child.is-vertical
@@ -205,9 +225,12 @@
   (let [audio (rf/subscribe [::s/audio])
         current (rf/subscribe [::s/current-song])
         highlight-status (rf/subscribe [::s/highlight-status])
-        player-status (rf/subscribe [::s/player-status])]
+        player-status (rf/subscribe [::s/player-status])
+        audio-events (rf/subscribe [::s/audio-events])]
     (.pause @audio)
     (set! (.-currentTime @audio) 0)
+    (async/close! @audio-events)
+    (rf/dispatch-sync [::events/set-audio-events nil])
     (rf/dispatch-sync [::events/set-current-frame nil])
     (rf/dispatch-sync [::events/set-lyrics nil])
     (rf/dispatch-sync [::events/set-lyrics-loaded? false])
@@ -329,28 +352,77 @@
                :left 0
                :margin "2em 2em"})
 
+(def time-display-style
+  {:position :fixed
+   :display :block
+   :top 0
+   :left "50%"
+   :transform "translate(-50%)"
+   :margin "1em"
+   :border-radius ".5em"
+   :padding "0.5em"
+   :background-color "rgba(0,0,0, 0.3)"})
+
+(defn song-time-display [^double ms]
+  (let [secs (-> ms
+                 (/ 1000.0)
+                 (mod 60.0)
+                 long)
+        mins (-> ms
+                 (/ 1000.0)
+                 (/ (* 60.0 1.0))
+                 (mod 60.0)
+                 long)
+        hours (-> ms
+                  (/ 1000.0)
+                  (/ (* 60.0 60.0 1.0))
+                  (mod 60.0)
+                  long)]
+    ;; (println  hours ":" mins ":" secs)
+    [:div.time-display
+     (stylefy/use-style time-display-style)
+     [:span.hours hours] ":"
+     [:span.minutes mins] ":"
+     [:span.seconds secs] "."
+     [:span.milis (-> ms (mod 1000) long)]]))
+
+(def view-states
+  {:home {:go-to-playback :playback
+          :go-to-home :home
+          :play :home}
+   :playback {:play :playback
+              :stop :playback
+              :go-to-home :home
+              :go-to-playback :playback}
+   :admin {}})
+
+(def transition  (partial  view-states))
+
 (defn playback-view []
   [:div.container.app
    [utils/modals-component]
    [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
    [current-frame-display]
+   [song-time-display (* 1000 @(rf/subscribe [::s/song-position]))]
    ;; [control-panel]
    (when (and
           @(rf/subscribe [::s/song-paused?])
           @(rf/subscribe [::s/can-play?]))
      [:div
-      [:a
-       (stylefy/use-style
-        top-left
-        {:on-click #(rf/dispatch [::events/set-current-view :home])})
-       [:span.icon
-        [:i.fas.fa-cog.fa-3x]]]
+      (when @(rf/subscribe
+              [::s/view-property :playback :options-enabled?])
+        [:a
+         (stylefy/use-style
+          top-left
+          {:on-click #(rf/dispatch [::events/set-current-view :home])})
+         [:span.icon
+          [:i.fas.fa-cog.fa-3x]]])
       [:a
         (stylefy/use-style
          centered
          {:on-click play})
-        [:span.icon
-         [:i.fas.fa-play.fa-5x]]]])
+       [:span.icon
+        [:i.fas.fa-play.fa-5x]]]])
    (when-not @(rf/subscribe [::s/can-play?])
      [:a
       (stylefy/use-style
@@ -408,7 +480,9 @@
     (load-song song)
     (when-some [offset (:offset query-params)]
       (rf/dispatch [::events/set-lyrics-delay (long offset)])
-      (rf/dispatch [::events/set-custom-song-delay song (long offset)])))
+      (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
+    (when-some [show-opts? (:show-opts query-params)]
+      (rf/dispatch [::events/set-view-property :playback :options-enabled? true])))
   ;; Quick and dirty history configuration.
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
@@ -426,8 +500,8 @@
                (println "esc pressed!")
                (when-not (nil? @(rf/subscribe [::s/player-status]))
                  (stop))))
-  (key/bind! "l r" ::l-r-kb #(load-song)))
-
+  (key/bind! "l r" ::l-r-kb #(load-song))
+  (key/bind! "alt-o" ::alt-o #(rf/dispatch [::events/set-view-property :playback :options-enabled? true])))
 (defn mount-components! []
   (reagent/render
    [app]
@@ -442,3 +516,25 @@
   (init-routing!)
   (init-keybindings!))
 
+
+(defmethod aud/process-audio-event :canplaythrough
+  [event]
+  (println "handling canplaythrough event")
+  (rf/dispatch [::events/set-can-play? true])
+  (rf/dispatch [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))]))
+
+(defmethod aud/process-audio-event :timeupdate
+  [event]
+  ;; (println "update time: " (-> (:event event) .-target .-value))
+  (rf/dispatch [::events/set-player-current-time (.-currentTime @(rf/subscribe [::s/audio]))]))
+
+(defmethod aud/process-audio-event :play
+  [event]
+  ;; (println "update time: " (-> (:event event) .-target .-value))
+  (rf/dispatch [::events/set-playing? true]))
+
+
+(defmethod aud/process-audio-event :pause
+  [event]
+  ;; (println "update time: " (-> (:event event) .-target .-value))
+  (rf/dispatch [::events/set-playing? false]))

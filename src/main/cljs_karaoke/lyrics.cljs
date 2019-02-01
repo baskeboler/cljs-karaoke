@@ -4,7 +4,7 @@
             [com.rpl.specter :as s :include-macros true]))
             ;; [cljs.core :as core :refer [random-uuid]]))
 
-(def *print-length* nil)
+;; (def *print-length* nil)
 (def frame-text-limit 128)
 
 (defn set-event-id [event]
@@ -119,7 +119,7 @@
                         frames)]
     (apply concat frame-grps)))
 
-(defn random-uuid [] (cljs.core/random-uuid))
+;; (defn random-uuid [] (cljs.core/random-uuid))
 (defn set-ids [frames]
   #_(s/transform [s/ALL]
                (fn [fr]
@@ -149,7 +149,7 @@
         with-relative-events        (mapv
                                      (fn [frame]
                                        (-> frame
-                                           (update :events
+                                           #(update % :events
                                                    (update-events-to-relative-offset-with-id
                                                     (:offset %)))
                                            with-offset)))]

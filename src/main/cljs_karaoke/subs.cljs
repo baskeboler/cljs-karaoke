@@ -92,47 +92,18 @@
    (filter verified song-list)))
 
 (rf/reg-sub
- ::clock
- (fn [db _]
-   (:clock db)))
-
-(rf/reg-sub
- ::clocked-audio
- :<- [::audio]
- :<- [::clock]
- (fn [[audio clock] _]
-   (if (pos? clock)
-     audio
-     nil)))
-
-(rf/reg-sub
- ::song-duration
- :<- [::clocked-audio]
- :<- [::clock]
- (fn [[audio clock] _]
-   (if (pos? clock)
-     (.-duration audio)
-     0)))
-
-(rf/reg-sub
  ::song-position
- :<- [::clocked-audio]
- :<- [::clock]
- (fn [[audio clock] _]
-   (if (pos? clock)
-     (.-currentTime audio)
-     0)))
-
+ (fn [db _]
+   (:player-current-time db)))
 (rf/reg-sub
  ::song-paused?
- :<- [::clocked-audio]
- :<- [::clock]
- (fn [[audio clock] _]
-   (if (and
-        (pos? clock)
-        (not (nil? audio)))
-     (.-paused audio)
-     true)))
+ (fn [db _]
+   (not (:playing? db))))
+(rf/reg-sub
+ ::song-duration
+ (fn [db _]
+   (:song-duration db)))
+
 
 (rf/reg-sub
  ::custom-song-delay
@@ -171,3 +142,11 @@
  ::current-view
  (fn [db _]
    (:current-view db)))
+
+(rf/reg-sub
+ ::view-property
+ (fn [db [_ view property]]
+   (get-in db [:views view property])))
+
+(rf/reg-sub ::player-current-time (fn [db _] (:player-current-time db)))
+(rf/reg-sub ::audio-events (fn [db _] (:audio-events db)))

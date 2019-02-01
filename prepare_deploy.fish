@@ -2,7 +2,17 @@
 
 shadow-cljs release app
 rm -rf public/js/cljs-runtime
-cp -rf public/* build/Release
+git branch -f gh-pages
 git checkout gh-pages
-cp -rf build/Release/* .
+git reset --hard origin/master
+mkdir tmp
+cd tmp
+mv ../* .
+cd ..
+mv tmp/public/* .
+
+
+# git checkout gh-pages
+# cp -rf build/Release/* .
+
 echo "Built project and copied build into root of gh-pages, ready to commit."

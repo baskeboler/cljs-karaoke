@@ -18,25 +18,28 @@
          :lyrics-fetching? false
          :lyrics-delay -1000
          :audio nil
+         :audio-events nil
          :display-lyrics? false
          :current-song nil
          :player-status nil
          :can-play? false
          :highlight-status nil
          :playing? false
-         :clock 0
+         :player-current-time 0
+         :song-duration 0
          :custom-song-delay {}
          :song-backgrounds {}
          :current-view :home
+         :views {:home {}
+                 :playback {:options-enabled? false}}
          :song-list {:page-size 10
                      :current-page 0
                      :filter ""
                      :filter-verified? false
                      :visible? true}
          :modals []}
-    :dispatch-n [[::clock-event]
-                 [::fetch-custom-delays
-                  ::init-song-bg-cache]]}))
+    :dispatch-n [[::fetch-custom-delays]
+                 [::init-song-bg-cache]]}))
 (rf/reg-event-fx
  ::http-fetch-fail
  (fn-traced
@@ -44,14 +47,14 @@
   (println "fetch failed" err)
   {:db db
    :dispatch-n dispatch-n-vec}))
-
-(rf/reg-event-fx
- ::clock-event
- (fn-traced
-  [{:keys [db]} _]
-  {:db (-> db
-           (update :clock inc))
-   :dispatch-later [{:ms 2000 :dispatch [::clock-event]}]}))
+(comment
+  (rf/reg-event-fx
+   ::clock-event
+   (fn-traced
+    [{:keys [db]} _]
+    {:db (-> db
+             (update :clock inc))
+     :dispatch-later [{:ms 2000 :dispatch [::clock-event]}]})))
             
 
 (rf/reg-event-fx
@@ -118,7 +121,8 @@
           (update :song-backgrounds
                   merge cache))
       db))))
-
+(reg-set-attr ::set-audio-events :audio-events)
+(reg-set-attr ::set-song-duration :song-duration)
 (reg-set-attr ::set-current-frame :current-frame)
 (reg-set-attr ::set-audio :audio)
 (reg-set-attr ::set-lyrics :lyrics)
@@ -127,7 +131,8 @@
 (reg-set-attr ::set-display-lyrics? :display-lyrics?)
 (reg-set-attr ::set-can-play? :can-play?)
 (reg-set-attr ::set-current-view :current-view)
-
+(reg-set-attr ::set-player-current-time :player-current-time)
+(reg-set-attr ::set-playing? :playing?)
 (rf/reg-event-db
  ::toggle-display-lyrics
  (fn-traced
@@ -344,3 +349,8 @@
   (save-to-localstore name obj)
   {:db db}))
 
+(rf/reg-event-db
+ ::set-view-property
+ (fn-traced [db [_ view-name property-name property-value]]
+   (-> db
+       (assoc-in [:views view-name property-name] property-value))))
