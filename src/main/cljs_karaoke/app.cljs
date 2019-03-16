@@ -4,6 +4,8 @@
             [day8.re-frame.http-fx]
             [ajax.core :as ajax]
             [cljs-karaoke.events :as events]
+            [cljs-karaoke.events.song-list :as song-list-events]
+            [cljs-karaoke.events.views :as views-events]
             [cljs-karaoke.subs :as s]
             [cljs-karaoke.utils :as utils :refer [show-export-sync-info-modal]]
             [cljs-karaoke.songs :as songs :refer [song-table-component]]
@@ -34,18 +36,6 @@
 
 (def bg-style (rf/subscribe [::s/bg-style]))
 
-(comment
-  (go-loop [wps (cycle wallpapers)]
-    _ (<! (timeout (* 60 1000)))
-    (let [wp (first wps)
-          wps-2 (rest wps)
-          image-path (str "images/" wp)
-          new-style {:background-image (str "url(\"" image-path "\")")}]
-      (println "setting wp " wp)
-     ;; (reset! bg-style new-style)
-      (rf/dispatch [::events/generate-bg-css wp])
-      (recur wps-2 (<! (timeout (* 60 1000)))))))
-
 (defn toggle-display-lyrics []
   (rf/dispatch [::events/toggle-display-lyrics]))
 
@@ -66,15 +56,11 @@
          audio (js/Audio. audio-path)
          audio-events (aud/setup-audio-listeners audio)]
      (rf/dispatch-sync [::events/set-audio-events audio-events])
-     #_(.. audio (addEventListener)
-                "canplaythrough"
-                (fn []
-                  (println "media is ready!")
-                  (rf/dispatch [::events/set-can-play? true])))
      (go-loop [e (<! audio-events)]
        (when-not (nil? e)
          (aud/process-audio-event e)
          (recur (<! audio-events))))
+     
      (.play audio)
      (.pause audio)
      ;; (set! (.-volume audio) 0)
@@ -82,7 +68,7 @@
      (rf/dispatch-sync [::events/set-current-song name])
      (rf/dispatch-sync [::events/set-audio audio])
      (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
-     (rf/dispatch-sync [::events/toggle-song-list-visible])))
+     (rf/dispatch-sync [::song-list-events/toggle-song-list-visible])))
   ([]
    (let [song (rand-nth songs/song-list)]
      (load-song song))))
@@ -90,9 +76,10 @@
 (defn return-after-timeout [obj delay]
   (let [ret-chan (chan)]
     ;; (if (pos? delay)
+    (when (>= delay 0)
       (go
         (<! (timeout delay))
-        (>! ret-chan obj))
+        (>! ret-chan obj)))
       ;; (async/close! ret-chan)
     ret-chan))
 
@@ -106,8 +93,8 @@
       (doseq [_ (range (count part-tos))
               :let [[v ch] (async/alts! part-tos)]
               :while v]
-          (println "highlight-2" (:id v))
-          (rf/dispatch-sync [::events/highlight-frame-part (:id frame) (:id v)])))))
+        (println "highlight-2" (:id v))
+        (rf/dispatch-sync [::events/highlight-frame-part (:id frame) (:id v)])))))
 
 (defn song-progress []
   (let [dur (rf/subscribe [::s/song-duration])
@@ -120,25 +107,6 @@
               (long (* 100 (/ @cur @dur)))
               0) "%")])))
 
-#_(defn highlight-parts [frame]
-   (let [part-chan (chan)]
-        evts (:events frame)
-        current-frame (rf/subscribe [::s/current-frame])
-    (doseq [v (vec evts)]
-      (go
-        (<! (timeout (long (:offset v))))
-        (>! part-chan (:id v))))
-    (go-loop [h-id (<! part-chan)
-              status @(rf/subscribe [::s/highlight-status])]
-      (when (and
-             @current-frame
-             status)
-        (println "highlight " h-id)
-        (rf/dispatch-sync
-         [::events/highlight-frame-part (:id frame) h-id])
-        (recur (<! part-chan) @(rf/subscribe [::s/highlight-status]))))
-    (rf/dispatch [::events/set-highlight-status part-chan])))
-
 (defn play-lyrics-2
   ([frames offset]
    (let [frame-chan (chan 1000)
@@ -147,52 +115,27 @@
          song-delay (rf/subscribe [::s/custom-song-delay @song])
          frames-tos (mapv (fn [fr]
                             (return-after-timeout
-                              fr
-                              (+ @song-delay
-                                 (- (:offset fr)
-                                    offset))))
+                             fr
+                             (+ @song-delay
+                                (- (:offset fr)
+                                   offset))))
                           frames)]
      (go
        (doseq [_ (range (count frames))
                :let [[v ch] (async/alts! (conj frames-tos frame-chan))]]
                              ;; (into frame-tos [frame-chan]))]]
-           (case ch
-             frame-chan (doseq [c frames-tos]
-                          (async/close! c))
-             (if (and
-                  v
-                  (not @(rf/subscribe [::s/song-paused?])))
-               (do
-                 (rf/dispatch-sync [::events/set-current-frame v])
-                 (highlight-parts-2 v))
-               (println "nil v!")))))
+         (case ch
+           frame-chan (doseq [c frames-tos]
+                        (async/close! c))
+           (if (and
+                v
+                (not @(rf/subscribe [::s/song-paused?])))
+             (do
+               (rf/dispatch-sync [::events/set-current-frame v])
+               (highlight-parts-2 v))
+             (println "nil v!")))))
      frame-chan))
   ([frames] (play-lyrics-2 frames 0)))
-
-#_(defn play-lyrics
-   ([frames offset])
-   (let [frame-chan (chan 1000)
-         ;; part-chan (chan 10)
-         song (rf/subscribe [::s/current-song])
-         delay (rf/subscribe [::s/custom-song-delay song])]
-         ;; frames-tos (map #(return-after-timeout % (:offset %)) frames)]
-     (doseq [frame (vec frames)
-             :when (and
-                    (not= nil (:ticks frame))
-                    (> (:offset frame) offset))]
-       (go
-         (<! (timeout (+ (long (- (:offset frame) offset)) @delay)))
-         (println "after timeout" frame)
-         (async/put! frame-chan frame)
-         (highlight-parts-2 frame)))
-     (go-loop [fr (<! frame-chan)]
-       (when-not (nil? fr)
-         (rf/dispatch-sync [::events/set-current-frame fr])
-         (recur (<! frame-chan))))
-     frame-chan)
-   ([frames]
-    (play-lyrics frames 0)))
-   
 
 (defn delay-select []
   (let [delay (rf/subscribe [::s/lyrics-delay])]
@@ -211,6 +154,7 @@
   (-> t
       (str/replace #"/" "")
       (str/replace #"\\" "")))
+
 (defn- leading? [t]
   (or (str/starts-with? t "/")
       (str/starts-with? t "\\")))
@@ -262,11 +206,15 @@
     (when-not (nil? @highlight-status)
       (doseq [c @highlight-status]
         (async/close! c)))
-      ;; (async/close! @highlight-status))
     (rf/dispatch-sync [::events/set-highlight-status nil])
     (rf/dispatch-sync [::events/set-player-status nil])
-    ;; reload the song so we can play it again
     (load-song @current)))
+
+(defn select-current-frame [frames ms]
+  (let [previous-frames (filter #(<= (:offset %) ms) frames)
+        latest-offset (apply max (map :offset previous-frames))
+        latest (first (filter #(= (:offset %) latest-offset) previous-frames))]
+    latest))
 
 (defn seek [offset]
   (let [player-status (rf/subscribe [::s/player-status])
@@ -274,17 +222,14 @@
         highlight-status (rf/subscribe [::s/highlight-status])
         frames (rf/subscribe [::s/lyrics])
         pos (rf/subscribe [::s/player-current-time])]
-    (.pause @audio)
+    ;; (.pause @audio)
     (when-not (nil? @player-status)
       (async/close! @player-status))
-    #_(when-not (nil? @highlight-status)
-       (doseq [c @highlight-status]
-        (async/close! c)))
-      #_(rf/dispatch [::events/set-highlight-status nil])
     (rf/dispatch [::events/set-player-status
                   (play-lyrics-2 @frames (+ (* 1000 @pos) offset))])
-    (set! (.-currentTime @audio) (+ @pos (/ offset 1000.0)))
-    (.play @audio)))
+    (rf/dispatch [::events/set-current-frame (select-current-frame @frames (+ (* 1000 @pos) offset))])
+    (set! (.-currentTime @audio) (+ @pos (/ offset 1000.0)))))
+    ;; (.play @audio)))
 
 (defn toggle-song-list-btn []
   (let [visible? (rf/subscribe [::s/song-list-visible?])]
@@ -294,7 +239,7 @@
                        ["is-selected"
                         "is-success"]
                        ["is-danger"]))
-      :on-click #(rf/dispatch [::events/toggle-song-list-visible])}
+      :on-click #(rf/dispatch [::song-list-events/toggle-song-list-visible])}
      [:span.icon
       (if @visible?
         [:i.fas.fa-eye-slash];"Hide songs"
@@ -322,12 +267,12 @@
     [:table.table.is-fullwidth
      [:tbody
       [:tr
-        [:td "current"] [:td]
-                        (if-not (nil? @current-song)
-                          [:span.tag.is-info.is-normal
-                           @current-song]
-                          [:span.tag.is-danger.is-normal
-                           "no song selected"])]
+       [:td "current"] [:td]
+       (if-not (nil? @current-song)
+         [:span.tag.is-info.is-normal
+          @current-song]
+         [:span.tag.is-danger.is-normal
+          "no song selected"])]
       [:tr
        [:td "is paused?"]
        [:td (if @(rf/subscribe [::s/song-paused?]) "yes" "no")]]
@@ -361,8 +306,8 @@
         [:div.control
          [:button.button.is-info
           (if @can-play?
-           {:on-click play}
-           {:disabled true})
+            {:on-click play}
+            {:disabled true})
           [:span.icon
            [:i.fas.fa-play]]]]
         [:div.control
@@ -445,11 +390,8 @@
 
 (defn playback-view []
   [:div.playback-view
-   ;; [utils/modals-component]
-   ;; [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
    [current-frame-display]
    [song-time-display (* 1000 @(rf/subscribe [::s/song-position]))]
-   ;; [control-panel]
    (when (and
           @(rf/subscribe [::s/song-paused?])
           @(rf/subscribe [::s/can-play?]))
@@ -463,9 +405,9 @@
          [:span.icon
           [:i.fas.fa-cog.fa-3x]]])
       [:a
-        (stylefy/use-style
-         centered
-         {:on-click play})
+       (stylefy/use-style
+        centered
+        {:on-click play})
        [:span.icon
         [:i.fas.fa-play.fa-5x]]]])
    (when-not @(rf/subscribe [::s/can-play?])
@@ -478,8 +420,7 @@
            (load-song))})
       [:span.icon
        [:i.fas.fa-sync.fa-5x]]])
-      
-      
+
    [:button.button.is-danger.edge-stop-btn
     {:class (if @(rf/subscribe [::s/song-paused?])
               []
@@ -493,9 +434,6 @@
 
 (defn default-view []
   [:div.default-view
-   ;; [utils/modals-component]
-   ;; [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
-   ;; [current-frame-display]
    [control-panel]
    [:button.button.is-danger.edge-stop-btn
     {:class (if @(rf/subscribe [::s/song-paused?])
@@ -508,14 +446,34 @@
      [:div.edge-progress-bar
       [song-progress]])])
 
+(defn toasty []
+  (let [toasty (rf/subscribe [::s/toasty?])]
+    (when-let [_ (rf/subscribe [::s/initialized?])]
+      [:div (stylefy/use-style
+              (merge
+               {:position :fixed
+                :bottom "calc(0px - 100%)"
+                :left "-300px"
+                :display :block
+                :transition "bottom 1s ease-in-out"}
+               (if @toasty {:bottom "0px"} {})))
+         [:img {:src "images/toasty.png"}]])))
+
+(defn trigger-toasty []
+  (let [a (js/Audio. "media/toasty.mp3")]
+    (.play a)
+    (rf/dispatch [::events/trigger-toasty])))
+
 (defn app []
   [:div.container.app
+   [toasty]
    [utils/modals-component]
    [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
-   
-   (condp = @(rf/subscribe [::s/current-view])
-    :home [default-view]
-    :playback [playback-view])])
+
+   (when-let [_ @(rf/subscribe [::s/initialized?])]
+     (condp = @(rf/subscribe [::s/current-view])
+       :home [default-view]
+       :playback [playback-view]))])
 
 (defn init-routing! []
   (secretary/set-config! :prefix "#")
@@ -531,8 +489,14 @@
       (rf/dispatch [::events/set-lyrics-delay (long offset)])
       (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
     (when-some [show-opts? (:show-opts query-params)]
-      (rf/dispatch [::events/set-view-property :playback :options-enabled? true])))
+      (rf/dispatch [::views-events/set-view-property :playback :options-enabled? true])))
   ;; Quick and dirty history configuration.
+  (defroute "/party-mode" []
+    (println "fuck yea! party mode ON")
+    (rf/dispatch [::events/set-loop? true])
+    ;; (when-some [s (rf/subscribe [::s/playlist-current])]
+    (rf/dispatch [::events/playlist-load]))
+    ;; (load-song @(rf/subscribe [::s/current-song])))
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
     (doto h (.setEnabled true))))
@@ -547,12 +511,19 @@
              ::esc-kb
              (fn []
                (println "esc pressed!")
+               (when-let [_ @(rf/subscribe [::s/loop?])]
+                 (rf/dispatch-sync [::events/set-loop? false]))
                (when-not (nil? @(rf/subscribe [::s/player-status]))
                  (stop))))
   (key/bind! "l r" ::l-r-kb #(load-song))
-  (key/bind! "alt-o" ::alt-o #(rf/dispatch [::events/set-view-property :playback :options-enabled? true]))
+  (key/bind! "alt-o" ::alt-o #(rf/dispatch [::views-events/set-view-property :playback :options-enabled? true]))
   (key/bind! "left" ::left #(seek -10000.0))
-  (key/bind! "right" ::right #(seek 10000.0)))
+  (key/bind! "right" ::right #(seek 10000.0))
+  (key/bind! "meta-shift-l" ::loop-mode #(do
+                                           (rf/dispatch [::events/set-loop? true])
+                                           (rf/dispatch [::events/playlist-load])))
+  (key/bind! "alt-meta-p" ::alt-meta-play #(play))
+  (key/bind! "t t" ::double-t #(trigger-toasty)))
 (defn mount-components! []
   (reagent/render
    [app]
@@ -561,30 +532,43 @@
 (defn init! []
   (println "init!")
   (rf/dispatch-sync [::events/init-db])
-  (rf/dispatch [::events/init-song-delays])
-  (rf/dispatch [::events/init-song-bg-cache])
+  ;; (rf/dispatch [::events/fetch-custom-delays])
+  ;; (rf/dispatch [::events/fetch-song-background-config])
+  ;; (rf/dispatch [::song-list-events/init-song-list-state])
+  ;; (rf/dispatch [::views-events/init-views-state])
+  ;; (rf/dispatch-sync [::events/build-verified-playlist])
+  ;; (rf/dispatch [::events/init-song-bg-cache])
   (mount-components!)
   (init-routing!)
   (init-keybindings!))
-
 
 (defmethod aud/process-audio-event :canplaythrough
   [event]
   (println "handling canplaythrough event")
   (rf/dispatch [::events/set-can-play? true])
-  (rf/dispatch [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))]))
+  (rf/dispatch [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))])
+  (when-let [_ (and
+                @(rf/subscribe [::s/loop?])
+                @(rf/subscribe [::s/song-paused?]))]
+    (play)))
 
 (defmethod aud/process-audio-event :timeupdate
   [event]
-  (rf/dispatch [::events/set-player-current-time (.-currentTime @(rf/subscribe [::s/audio]))]))
+  (let [a @(rf/subscribe [::s/audio])]
+    (when-not (nil? a)
+      (rf/dispatch [::events/set-player-current-time (.-currentTime a)]))))
 
 (defmethod aud/process-audio-event :play
   [event]
-  ;; (println "update time: " (-> (:event event) .-target .-value))
   (rf/dispatch [::events/set-playing? true]))
-
 
 (defmethod aud/process-audio-event :pause
   [event]
-  ;; (println "update time: " (-> (:event event) .-target .-value))
   (rf/dispatch [::events/set-playing? false]))
+
+(defmethod aud/process-audio-event :ended
+  [event]
+  (println "processing ended event: " event)
+  (rf/dispatch [::events/set-playing? false])
+  (when-let [_ @(rf/subscribe [::s/loop?])]
+    (load-song)))

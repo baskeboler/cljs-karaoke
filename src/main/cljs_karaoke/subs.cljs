@@ -144,9 +144,38 @@
    (:current-view db)))
 
 (rf/reg-sub
+ ::views
+ (fn [db _] (:views db)))
+
+(rf/reg-sub
  ::view-property
- (fn [db [_ view property]]
-   (get-in db [:views view property])))
+ :<- [::views]
+ (fn [views [_ view property]]
+   (get-in views [view property])))
 
 (rf/reg-sub ::player-current-time (fn [db _] (:player-current-time db)))
 (rf/reg-sub ::audio-events (fn [db _] (:audio-events db)))
+(rf/reg-sub ::loop? (fn [db _] (:loop? db)))
+
+(rf/reg-sub
+ ::playlist-current
+ (fn [db _]
+   (some-> db
+           :playlist
+           (current))))
+
+(rf/reg-sub
+ ::initialized?
+ :<- [::views]
+ :<- [::song-list]
+ (fn [[views songs] _]
+   (and
+    (not (empty? @re-frame.db/app-db))
+    (not (empty? views))
+    (not (empty? songs)))))
+    ;; (not (nil? (:playlist @re-frame.db/app-db))))))
+
+(rf/reg-sub
+ ::toasty?
+ (fn [db _]
+   (:toasty? db)))

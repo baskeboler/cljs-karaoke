@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [cljs-karaoke.subs :as s]
             [cljs-karaoke.events :as events]
+            [cljs-karaoke.events.song-list :as song-list-events]
             [re-frame.core :as rf :include-macros true]))
 
 (def song-list
@@ -597,8 +598,8 @@
         page-size (rf/subscribe [::s/song-list-page-size])
         filter-text (rf/subscribe [::s/song-list-filter])
         page-offset (rf/subscribe [::s/song-list-offset])
-        next-fn #(rf/dispatch [::events/set-song-list-current-page (inc @current-page)])
-        prev-fn #(rf/dispatch [::events/set-song-list-current-page (dec @current-page)])]
+        next-fn #(rf/dispatch [::song-list-events/set-song-list-current-page (inc @current-page)])
+        prev-fn #(rf/dispatch [::song-list-events/set-song-list-current-page (dec @current-page)])]
     (fn []
       [:nav.pagination {:role :navigation}
         [:a.pagination-previous {:on-click #(when (pos? @current-page) (prev-fn))
@@ -617,7 +618,7 @@
     [:div.field>div.control.has-icon
      [:input.input.is-primary
       {:value @filt
-       :on-change #(rf/dispatch [::events/set-song-filter
+       :on-change #(rf/dispatch [::song-list-events/set-song-filter
                                  (-> % .-target .-value)])}]
      [:span.icon
       [:i.fas.fa-search]]]))
