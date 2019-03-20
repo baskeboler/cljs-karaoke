@@ -4,7 +4,6 @@
             [com.rpl.specter :as s :include-macros true]))
             ;; [cljs.core :as core :refer [random-uuid]]))
 
-;; (def *print-length* nil)
 (def frame-text-limit 128)
 
 (defn set-event-id [event]
@@ -15,7 +14,6 @@
 (defn to-relative-offset-events [base-offset]
   (fn [event]
     (s/transform [:offset] #(- % base-offset) event)))
-    ;; (-> event (update :offset - base-offset))))
 
 (defn to-relative-offset-events-with-id [base-offset]
   (comp set-event-id (to-relative-offset-events base-offset)))
@@ -23,12 +21,10 @@
 (defn update-events-to-relative-offset [base-offset]
   (fn [events]
     (s/transform [s/ALL] (to-relative-offset-events base-offset) events)))
-    ;; (mapv (to-relative-offset-events base-offset) events)))
 
 (defn update-events-to-relative-offset-with-id [base-offset]
   (fn [events]
     (s/transform [s/ALL] (to-relative-offset-events-with-id base-offset) events)))
-    ;; (mapv (to-relative-offset-events-with-id base-offset) events)))
 
 (defn to-relative-frame-offsets [frames]
   (reduce

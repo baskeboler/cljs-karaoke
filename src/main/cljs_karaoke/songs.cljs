@@ -3,8 +3,10 @@
             [clojure.string :as str]
             [cljs-karaoke.subs :as s]
             [cljs-karaoke.events :as events]
-            [re-frame.core :as rf :include-macros true]))
-
+            [cljs-karaoke.events.song-list :as song-list-events]
+            [re-frame.core :as rf :include-macros true]
+            [cljs-karaoke.audio :as aud]
+            [cljs.core.async :as async :refer [<! >! chan go go-loop]]))
 (def song-list
   [
     "Aaron Tippin-aint nothin wrong with the radio aaron tippon"
@@ -597,8 +599,8 @@
         page-size (rf/subscribe [::s/song-list-page-size])
         filter-text (rf/subscribe [::s/song-list-filter])
         page-offset (rf/subscribe [::s/song-list-offset])
-        next-fn #(rf/dispatch [::events/set-song-list-current-page (inc @current-page)])
-        prev-fn #(rf/dispatch [::events/set-song-list-current-page (dec @current-page)])]
+        next-fn #(rf/dispatch [::song-list-events/set-song-list-current-page (inc @current-page)])
+        prev-fn #(rf/dispatch [::song-list-events/set-song-list-current-page (dec @current-page)])]
     (fn []
       [:nav.pagination {:role :navigation}
         [:a.pagination-previous {:on-click #(when (pos? @current-page) (prev-fn))
@@ -617,7 +619,7 @@
     [:div.field>div.control.has-icon
      [:input.input.is-primary
       {:value @filt
-       :on-change #(rf/dispatch [::events/set-song-filter
+       :on-change #(rf/dispatch [::song-list-events/set-song-filter
                                  (-> % .-target .-value)])}]
      [:span.icon
       [:i.fas.fa-search]]]))
@@ -655,3 +657,28 @@
                    ;; :on-click #(select-fn name)}
                   "Load song"]]])]]]]))
 
+
+(defn load-song
+  ([name]
+   (rf/dispatch-sync [::events/set-can-play? false])
+   (let [audio-path (str "mp3/" name ".mp3")
+         lyrics-path (str "lyrics/" name ".edn")
+         audio (js/Audio. audio-path)
+         audio-events (aud/setup-audio-listeners audio)]
+     (rf/dispatch-sync [::events/set-audio-events audio-events])
+     (go-loop [e (<! audio-events)]
+       (when-not (nil? e)
+         (aud/process-audio-event e)
+         (recur (<! audio-events))))
+     
+     (.play audio)
+     (.pause audio)
+     ;; (set! (.-volume audio) 0)
+     (rf/dispatch [::events/set-current-view :playback])
+     (rf/dispatch-sync [::events/set-current-song name])
+     (rf/dispatch-sync [::events/set-audio audio])
+     (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
+     (rf/dispatch-sync [::song-list-events/toggle-song-list-visible])))
+  ([]
+   (let [song (rand-nth (vec song-list))]
+     (load-song song))))
