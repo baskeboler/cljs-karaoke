@@ -11,72 +11,87 @@
             [cljs-karaoke.events.views :as views-events]
             [cljs-karaoke.events.playlists :as playlist-events]
             [cljs-karaoke.events.song-list :as song-list-events]))
+            ;; [cljs-karaoke.playlists.KaraokePlaylist]
+            ;; [cljs-karaoke.playlists.Playlist]))
 
 ;; (def ::init-song-list-state ::song-list-events/init-song-list-state)
-(def fetch-bg-from-web-enabled? false)
-
+(def fetch-bg-from-web-enabled? true)
 
 (defn init-flow []
-   {:first-dispatch [::init-fetches]
-    :rules [
-            {:when :seen-any-of?
-             :events [::handle-fetch-background-config-success
-                      ::handle-fetch-background-config-failure]
-             :dispatch [::init-song-bg-cache]}
-            {:when :seen?
-             :events ::handle-fetch-delays-complete
-             :dispatch [::init-song-delays]}
+  {:first-dispatch [::init-fetches]
+   :rules [{:when :seen?
+            :events [::handle-fetch-background-config-complete]
+            :dispatch [::init-song-bg-cache]}
+           {:when :seen?
+            :events ::handle-fetch-delays-complete
+            :dispatch [::init-song-delays]}
             ;; {:when :seen-all-of? :events [::song-bgs-loaded ::song-delays-loaded]}
             ;; {:when :seen?
              ;; :events ::song-delays-loaded
              ;; :dispatch [::build-verified-playlist]
-             ;; :halt? true}
-            {:when :seen-all-of?
-             :events [::song-bgs-loaded
-                      ::song-delays-loaded
-                      ::views-events/views-state-ready
-                      ::song-list-events/song-list-ready]
-             :dispatch [::initialized]
-             :halt? true}]})
+            ;; :halt? true}
+            ;; {:when :seen?
+             ;; :events [::fetch-song-background-config-complete]
+             ;; :dispatch [::init-song-bg-cache]}
+           {:when :seen?
+            :events [::handle-fetch-delays-complete]
+            :dispatch-n '([::save-custom-song-delays-to-localstorage]
+                          [::build-verified-playlist])}
+           {:when :seen-any-of?
+            :events [::handle-fetch-background-config-failure
+                     ::handle-fetch-delays-failure]
+            :dispatch [::boot-failure]
+            :halt? true}
+           {:when :seen-all-of?
+            :events [::song-bgs-loaded
+                     ::song-delays-loaded
+                     ::playlist-ready
+                     ::views-events/views-state-ready
+                     ::song-list-events/song-list-ready]
+            :dispatch [::initialized]
+            :halt? true}]})
+(rf/reg-event-db
+ ::boot-failure
+ (fn [db [_ e]]
+   (.log js/console "Failed to boot: " e)
+   db))
+
 (rf/reg-event-db
  ::initialized
  (fn-traced
   [db _]
-  (. js/console (log "initialized!"))))
-(rf/reg-event-db
- ::song-delays-loaded
- (fn-traced [db _]
-   (-> db
-       (assoc :song-delays-loaded true))))
+  (. js/console (log "initialized!"))
+  db))
+
 (rf/reg-event-fx
  ::init-db
  (fn-traced [_ _]
-   {:db {:current-frame nil
-         :lyrics nil
-         :lyrics-loaded? false
-         :lyrics-fetching? false
-         :lyrics-delay -1000
-         :audio nil
-         :audio-events nil
-         :display-lyrics? false
-         :current-song nil
-         :player-status nil
-         :can-play? false
-         :highlight-status nil
-         :playing? false
-         :toasty? false
-         :player-current-time 0
-         :song-duration 0
-         :custom-song-delay {}
-         :song-backgrounds {}
-         :loop? false
-         :current-view :home
+            {:db {:current-frame nil
+                  :lyrics nil
+                  :lyrics-loaded? false
+                  :lyrics-fetching? false
+                  :lyrics-delay -1000
+                  :audio nil
+                  :audio-events nil
+                  :display-lyrics? false
+                  :current-song nil
+                  :player-status nil
+                  :can-play? false
+                  :highlight-status nil
+                  :playing? false
+                  :toasty? false
+                  :player-current-time 0
+                  :song-duration 0
+                  :custom-song-delay {}
+                  :song-backgrounds {}
+                  :loop? false
+                  :current-view :home
          ;; :playlist (pl/build-playlist)
-         :modals []}
+                  :modals []}
     ;; :dispatch-n [[::fetch-custom-delays]
                  ;; [::fetch-song-background-config]}
                  ;; [::init-song-bg-cache]]}))
-    :async-flow (init-flow)}))
+             :async-flow (init-flow)}))
 
 (rf/reg-event-fx
  ::init-fetches
@@ -88,7 +103,7 @@
                 ;; [::init-song-bg-cache]
                 [::views-events/init-views-state]
                 [::song-list-events/init-song-list-state]]}))
-                            
+
 (rf/reg-event-db
  ::toggle-toasty?
  (fn-traced
@@ -121,24 +136,26 @@
                 :timeout 8000
                 :response-format (ajax/text-response-format)
                 :on-success [::handle-fetch-delays-success]
-                ;; :on-failure [::http-fetch-fail [[::init-song-delays]]]}}))
                 :on-failure [::handle-fetch-delays-failure]}}))
 (rf/reg-event-fx
  ::handle-fetch-delays-success
  (fn-traced
-  [{:keys [db]} [_ [_ delays-resp]]]
-  {:db (-> db
-           (assoc :custom-song-delay (reader/read-string delays-resp)))
-   :dispatch [::handle-fetch-delays-complete]}))
+  [{:keys [db]} [_ delays-resp]]
+  (let [r (-> delays-resp
+              (reader/read-string))]
+    {:db (-> db
+             (assoc :custom-song-delay r))
+     :dispatch [::handle-fetch-delays-complete]})))
 
-(rf/reg-event-fx
- ::handle-fetch-delays-failure
- (fn-traced
-  [{:keys [db]} [_ e]]
-  (.log js/console "error fetching delays: " e)
-  {:db db
-   :dispatch [::handle-fetch-delays-complete]}))
-
+#_(rf/reg-event-fx
+   ::handle-fetch-delays-failure
+   (fn-traced
+    [{:keys [db]} [_ e]]
+    (.log js/console "error fetching delays: " e)
+    {:db db
+     :dispatch [::handle-fetch-delays-complete]}))
+(rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] db))
+;; (rf/reg-event-db ::handle-fetch-background-config-complete (fn [db _] db))
 (rf/reg-event-fx
  ::fetch-song-background-config
  (fn-traced
@@ -149,22 +166,32 @@
                 :timeout 8000
                 :response-format (ajax/text-response-format)
                 :on-success [::handle-fetch-background-config-success]
-                ;; :on-failure [::http-fetch-fail [[::init-song-bg-cache]]]}}))
                 :on-failure [::handle-fetch-background-config-failure]}}))
 (rf/reg-event-fx
  ::handle-fetch-background-config-success
  (fn-traced
-  [{:keys [db]} [_ [_ bgs-resp]]]
-  {:db (-> db
-           (assoc :song-backgrounds (reader/read-string bgs-resp)))
-   :dispatch [::init-song-bg-cache]}))
+  [{:keys [db] :as cofx} [_ a]]
+  (let [c (-> a
+              (reader/read-string))]
+    {:db (-> db
+             (assoc :song-backgrounds c))
+     :dispatch [::handle-fetch-background-config-complete]})))
+(rf/reg-event-fx
+ ::handle-fetch-background-config-failure
+ (fn-traced
+  [{:keys [db]} _]
+  {:db db
+   :dispatch [::handle-fetch-background-config-complete]}))
 
-   
+(rf/reg-event-db
+ ::handle-fetch-background-config-complete
+ (fn-traced [db _] db))
+
 (defn reg-set-attr [evt-name attr-name]
   (rf/reg-event-db
    evt-name
    (fn-traced [db [_ obj]]
-     (assoc db attr-name obj))))
+              (assoc db attr-name obj))))
 
 (defn save-custom-delays-to-localstore [delays]
   (. js/localStorage (setItem "custom-song-delays" (js/JSON.stringify (clj->js delays)))))
@@ -187,35 +214,33 @@
   [{:keys [db]} _]
   (let [delays (get-custom-delays-from-localstorage)]
     {:db (if-not (nil? delays)
-           
+
            (-> db
                (update :custom-song-delay
                        (fn [v]
-                         (merge
-                          (if (nil? v) {} v)
-                          delays))))
-                      ;; (merge (if-not (nil? (:custom-song-delay db))
-                                 ;; (:custom-song-delay db)
-                                 ;; {}
-                             ;; delays))))
+                         (merge {} v delays))))
            db)
      :dispatch [::song-delays-loaded]})))
 
-(rf/reg-event-fx
- ::song-delays-loaded
- (fn-traced
-  [{:keys [db]} _]
-  {:db (-> db
-           (assoc :song-delays-loaded true))}))
-
 (rf/reg-event-db
- ::build-verified-playlist
+ ::song-delays-loaded
  (fn-traced
   [db _]
   (-> db
-      (assoc :playlist 
-             (pl/build-playlist
-              (keys (get db :custom-song-delay {})))))))
+      (assoc :song-delays-loaded true))))
+
+(rf/reg-event-fx
+ ::build-verified-playlist
+ (fn-traced
+  [{:keys [db]} _]
+  (let [pl (pl/build-playlist
+            (keys (get db :custom-song-delay {})))]
+    {:db
+     (-> db
+         (assoc :playlist pl))
+     :dispatch [::playlist-ready]})))
+
+(rf/reg-event-db ::playlist-ready (fn-traced [db _] db))
 (rf/reg-event-fx
  ::playlist-next
  (fn-traced
@@ -242,20 +267,25 @@
                [::set-current-song (current ^Playlist (:playlist db))]
                [::playlist-load])}))
 
-
-(rf/reg-event-db
+(rf/reg-event-fx
  ::init-song-bg-cache
  (fn-traced
-  [db _]
+  [{:keys [db]} _]
   (let [cache (get-from-localstorage "song-bg-cache")]
     {:db (if-not (nil? cache)
-             (-> db
-                (update :song-backgrounds
-                  merge cache)
-                (assoc :song-backgrounds-loaded? true))
-             db)
+           (-> db
+               (update :song-backgrounds
+                       merge cache)
+               (assoc :song-backgrounds-loaded? true))
+           db)
      :dispatch [::song-bgs-loaded]})))
 
+(rf/reg-event-db
+ ::song-bgs-loaded
+ (fn-traced
+  [db _]
+  (. js/console (log "song backgrounds loaded"))
+  db))
 (reg-set-attr ::set-loop? :loop?)
 (reg-set-attr ::set-audio-events :audio-events)
 (reg-set-attr ::set-song-duration :song-duration)
@@ -282,7 +312,7 @@
   [{:keys [db]} [_ song-name]]
   {:db (-> db
            (assoc :current-song song-name))
-   :dispatch-n [[::fetch-bg song-name] 
+   :dispatch-n [[::fetch-bg song-name]
                 [::set-lyrics-delay (get-in db [:custom-song-delay song-name] (get db :lyrics-delay))]]}))
 
 (reg-set-attr ::set-player-status :player-status)
@@ -290,14 +320,14 @@
 (rf/reg-event-fx
  ::fetch-lyrics
  (fn-traced [{:keys [db]} [_ name process]]
-   {:db (-> db
-            (assoc :lyrics-loaded? false)
-            (assoc :lyrics-fetching? true))
-    :http-xhrio {:method :get
-                 :uri (str "lyrics/" name ".edn")
-                 :timeout 8000
-                 :response-format (ajax/text-response-format)
-                 :on-success [::handle-set-lyrics-success]}}))
+            {:db (-> db
+                     (assoc :lyrics-loaded? false)
+                     (assoc :lyrics-fetching? true))
+             :http-xhrio {:method :get
+                          :uri (str "lyrics/" name ".edn")
+                          :timeout 8000
+                          :response-format (ajax/text-response-format)
+                          :on-success [::handle-set-lyrics-success]}}))
 
 (rf/reg-event-db
  ::handle-set-lyrics-success
@@ -306,23 +336,25 @@
   (let [l (-> lyrics
               (reader/read-string))]
               ;; (preprocess-frames))]
-     (-> db
-         (assoc :lyrics l)
-         (assoc :lyrics-fetching? false)
-         (assoc :lyrics-loaded? true)))))
+    (-> db
+        (assoc :lyrics l)
+        (assoc :lyrics-fetching? false)
+        (assoc :lyrics-loaded? true)))))
 
-(rf/reg-event-fx
- ::play
- (rf/after (fn [{:keys [db]} [_ audio lyrics status]]
-              (.play audio)))
- (fn-traced
-  [{:keys [db]} [_ audio lyrics status]]
-  {:dispatch-n [[::set-lyrics lyrics]
-                [::set-audio audio]
-                [::set-player-status status]]
-   :db (-> db
-           (assoc :playing? true)
-           (assoc :player-status status))}))
+#_(rf/reg-event-fx
+   ::play
+   (rf/after
+    (fn-traced
+     [_ [_ audio lyrics status]]
+     (.play audio)))
+   (fn-traced
+    [{:keys [db]} [_ audio lyrics status]]
+    {:dispatch-n [[::set-lyrics lyrics]
+                  [::set-audio audio]
+                  [::set-player-status status]]
+     :db (-> db
+             (assoc :playing? true)
+             (assoc :player-status status))}))
 
 (defn highlight-if-same-id [id]
   (fn [evt]
@@ -336,9 +368,9 @@
             (if (and  (get db :current-frame)
                       (= frame-id (:id (get db :current-frame))))
               (-> db
-                (update-in [:current-frame :events]
-                           (fn [evts]
-                             (mapv (highlight-if-same-id part-id) evts))))
+                  (update-in [:current-frame :events]
+                             (fn [evts]
+                               (mapv (highlight-if-same-id part-id) evts))))
               db)))
 
 (rf/reg-event-db
@@ -362,7 +394,6 @@
   {:db (-> db
            (update :modals conj modal))
    :dispatch [::modal-activate]}))
-
 
 (rf/reg-event-db
  ::modal-activate
@@ -389,7 +420,7 @@
                           "&q=" q)
                 :response-format (ajax/json-response-format {:keywords? true})
                 :on-success callback-event
-                :on-failure [::print-arg]}}))          
+                :on-failure [::print-arg]}}))
 
 (rf/reg-event-fx
  ::print-arg
@@ -398,20 +429,19 @@
   (cljs.pprint/pprint opts)
   {:db db}))
 
-
 (rf/reg-event-fx
  ::fetch-bg
  (fn-traced
   [{:keys [db]} [_ title]]
   (let [cached (get-in db [:song-backgrounds title] nil)]
     (merge
-      {:db db}
-      (cond
-        (not (nil? cached))
-        {:dispatch [::generate-bg-css cached]}
-        (= true fetch-bg-from-web-enabled?)
-        {:dispatch [::search-images title [::handle-fetch-bg]]}
-        :else {})))))
+     {:db db}
+     (cond
+       (not (nil? cached))
+       {:dispatch [::generate-bg-css cached]}
+       (= true fetch-bg-from-web-enabled?)
+       {:dispatch [::search-images title [::handle-fetch-bg]]}
+       :else {})))))
 
 (rf/reg-event-fx
  ::handle-fetch-bg
@@ -419,12 +449,12 @@
   [{:keys [db]} [_ res]]
   (let [candidate-image (search/extract-candidate-image res)]
     {:db (if-not (nil? candidate-image)
-            (-> db
-                (assoc :bg-image (:url candidate-image)))
-            db)
+           (-> db
+               (assoc :bg-image (:url candidate-image)))
+           db)
      :dispatch-n [[::generate-bg-css (:url candidate-image)]
                   [::cache-song-bg (:current-song db) (:url candidate-image)]]})))
-              
+
 (rf/reg-event-db
  ::generate-bg-css
  (fn-traced

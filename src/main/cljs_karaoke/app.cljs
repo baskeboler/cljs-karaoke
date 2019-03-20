@@ -48,31 +48,6 @@
       "hide lyrics"
       "show lyrics")]])
 
-(defn load-song
-  ([name]
-   (rf/dispatch-sync [::events/set-can-play? false])
-   (let [audio-path (str "mp3/" name ".mp3")
-         lyrics-path (str "lyrics/" name ".edn")
-         audio (js/Audio. audio-path)
-         audio-events (aud/setup-audio-listeners audio)]
-     (rf/dispatch-sync [::events/set-audio-events audio-events])
-     (go-loop [e (<! audio-events)]
-       (when-not (nil? e)
-         (aud/process-audio-event e)
-         (recur (<! audio-events))))
-     
-     (.play audio)
-     (.pause audio)
-     ;; (set! (.-volume audio) 0)
-     (rf/dispatch [::events/set-current-view :playback])
-     (rf/dispatch-sync [::events/set-current-song name])
-     (rf/dispatch-sync [::events/set-audio audio])
-     (rf/dispatch-sync [::events/fetch-lyrics name preprocess-frames])
-     (rf/dispatch-sync [::song-list-events/toggle-song-list-visible])))
-  ([]
-   (let [song (rand-nth songs/song-list)]
-     (load-song song))))
-
 (defn return-after-timeout [obj delay]
   (let [ret-chan (chan)]
     ;; (if (pos? delay)
@@ -80,7 +55,6 @@
       (go
         (<! (timeout delay))
         (>! ret-chan obj)))
-      ;; (async/close! ret-chan)
     ret-chan))
 
 (defn highlight-parts-2 [frame]
@@ -94,7 +68,7 @@
               :let [[v ch] (async/alts! part-tos)]
               :while v]
         (println "highlight-2" (:id v))
-        (rf/dispatch-sync [::events/highlight-frame-part (:id frame) (:id v)])))))
+        (rf/dispatch [::events/highlight-frame-part (:id frame) (:id v)])))))
 
 (defn song-progress []
   (let [dur (rf/subscribe [::s/song-duration])
@@ -208,7 +182,7 @@
         (async/close! c)))
     (rf/dispatch-sync [::events/set-highlight-status nil])
     (rf/dispatch-sync [::events/set-player-status nil])
-    (load-song @current)))
+    (songs/load-song @current)))
 
 (defn select-current-frame [frames ms]
   (let [previous-frames (filter #(<= (:offset %) ms) frames)
@@ -233,12 +207,13 @@
 
 (defn toggle-song-list-btn []
   (let [visible? (rf/subscribe [::s/song-list-visible?])]
-    [:button.button.is-fullwidth
+    [:button.button.is-fullwidth.tooltip
      {:class (concat []
                      (if @visible?
                        ["is-selected"
                         "is-success"]
                        ["is-danger"]))
+      :data-tooltip "TOGGLE SONG LIST"
       :on-click #(rf/dispatch [::song-list-events/toggle-song-list-visible])}
      [:span.icon
       (if @visible?
@@ -254,9 +229,10 @@
      "remember song delay"]))
 
 (defn export-sync-data-btn []
-  [:button.button.is-info
+  [:button.button.is-info.tooltip
    {:on-click (fn [_]
-                (utils/show-export-sync-info-modal))}
+                (utils/show-export-sync-info-modal))
+    :data-tooltip "EXPORT SYNC INFO"}
    [:span.icon
     [:i.fas.fa-file-export]]])
     ;; "export sync data"]])
@@ -300,19 +276,21 @@
       [:div.columns>div.column.is-12
        [:div.field.has-addons
         [:div.control
-         [:button.button.is-primary {:on-click #(load-song @current-song)}
+         [:button.button.is-primary {:on-click #(songs/load-song @current-song)}
           [:span.icon
            [:i.fas.fa-folder-open]]]]
         [:div.control
-         [:button.button.is-info
+         [:button.button.is-info.tooltip
           (if @can-play?
-            {:on-click play}
+            {:on-click play
+             :data-tooltip "PLAY"}
             {:disabled true})
           [:span.icon
            [:i.fas.fa-play]]]]
         [:div.control
-         [:button.button.is-warning.stop-btn
-          {:on-click stop}
+         [:button.button.is-warning.stop-btn.tooltip
+          {:on-click stop
+           :data-tooltip "STOP"}
           [:span.icon
            [:i.fas.fa-stop]]]]
         [:div.control
@@ -416,8 +394,8 @@
        centered
        {:on-click
         #(if-let [song @(rf/subscribe [::s/current-song])]
-           (load-song song)
-           (load-song))})
+           (songs/load-song song)
+           (songs/load-song))})
       [:span.icon
        [:i.fas.fa-sync.fa-5x]]])
 
@@ -479,12 +457,12 @@
   (secretary/set-config! :prefix "#")
   (defroute "/" []
     (println "home path")
-    (load-song))
+    (songs/load-song))
   (defroute "/songs/:song"
     [song query-params]
     (println "song: " song)
     (println "query params: " query-params)
-    (load-song song)
+    (songs/load-song song)
     (when-some [offset (:offset query-params)]
       (rf/dispatch [::events/set-lyrics-delay (long offset)])
       (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
@@ -515,7 +493,7 @@
                  (rf/dispatch-sync [::events/set-loop? false]))
                (when-not (nil? @(rf/subscribe [::s/player-status]))
                  (stop))))
-  (key/bind! "l r" ::l-r-kb #(load-song))
+  (key/bind! "l r" ::l-r-kb #(songs/load-song))
   (key/bind! "alt-o" ::alt-o #(rf/dispatch [::views-events/set-view-property :playback :options-enabled? true]))
   (key/bind! "left" ::left #(seek -10000.0))
   (key/bind! "right" ::right #(seek 10000.0))
@@ -571,4 +549,4 @@
   (println "processing ended event: " event)
   (rf/dispatch [::events/set-playing? false])
   (when-let [_ @(rf/subscribe [::s/loop?])]
-    (load-song)))
+    (songs/load-song)))

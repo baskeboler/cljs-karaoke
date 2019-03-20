@@ -47,3 +47,10 @@
            (assoc-in [:song-list :filter] filter-text))
    :dispatch [::set-song-list-current-page 0]})) 
 
+(rf/reg-event-db
+ ::song-list-ready
+ (fn-traced
+  [db _]
+  (. js/console (log "song list ready"))
+  (-> db
+      (assoc-in [:song-list :ready?] true))))

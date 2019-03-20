@@ -15,7 +15,13 @@
            (assoc :views initial-views-state))
    :dispatch [::views-state-ready]}))
 
-(rf/reg-event-db ::views-state-ready (fn [db _] (-> db (assoc :views-state-ready? true))))
+(rf/reg-event-db
+ ::views-state-ready
+ (fn-traced
+  [db _]
+  (. js/console (log "views state ready"))
+  (-> db
+      (assoc :views-state-ready? true))))
 (rf/reg-event-db
  ::set-view-property
  (fn-traced [db [_ view-name property-name property-value]]
