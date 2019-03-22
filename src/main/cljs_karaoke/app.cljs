@@ -18,7 +18,10 @@
             [goog.events :as gevents]
             [goog.history.EventType :as EventType]
             [keybind.core :as key]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            ["bulma-extensions"]
+            [cljs-karaoke.views.page-loader :as page-loader]
+            [cljs-karaoke.events.songs :as song-events])
   (:import goog.History))
 (stylefy/init)
 
@@ -446,6 +449,7 @@
   [:div.container.app
    [toasty]
    [utils/modals-component]
+   [page-loader/page-loader-component]
    [:div.app-bg (stylefy/use-style (merge parent-style @bg-style))]
 
    (when-let [_ @(rf/subscribe [::s/initialized?])]
@@ -549,4 +553,5 @@
   (println "processing ended event: " event)
   (rf/dispatch [::events/set-playing? false])
   (when-let [_ @(rf/subscribe [::s/loop?])]
-    (songs/load-song)))
+;; (songs/load-song)))
+      (rf/dispatch [::events/playlist-next])))

@@ -7,7 +7,7 @@
  :dependencies
  [[reagent "0.8.1"]
   [keybind "2.2.0"]
-  [cljs-ajax "0.7.5"]
+  [cljs-ajax "0.8.0"]
   [re-frame "0.10.6"]
   [clj-commons/secretary "1.2.4"]
   [org.clojure/core.async "0.4.490"]

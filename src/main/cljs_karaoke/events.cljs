@@ -25,14 +25,6 @@
            {:when :seen?
             :events ::handle-fetch-delays-complete
             :dispatch [::init-song-delays]}
-            ;; {:when :seen-all-of? :events [::song-bgs-loaded ::song-delays-loaded]}
-            ;; {:when :seen?
-             ;; :events ::song-delays-loaded
-             ;; :dispatch [::build-verified-playlist]
-            ;; :halt? true}
-            ;; {:when :seen?
-             ;; :events [::fetch-song-background-config-complete]
-             ;; :dispatch [::init-song-bg-cache]}
            {:when :seen?
             :events [::handle-fetch-delays-complete]
             :dispatch-n '([::save-custom-song-delays-to-localstorage]
@@ -40,28 +32,37 @@
            {:when :seen-any-of?
             :events [::handle-fetch-background-config-failure
                      ::handle-fetch-delays-failure]
-            :dispatch [::boot-failure]
+            :dispatch-n [[::set-pageloader-active? false]
+                         [::boot-failure]]
             :halt? true}
+           {:when :seen?
+            :events ::playlist-ready
+            :dispatch-n [
+                         [::set-current-view :playback]
+                         [::playlist-load]]}
            {:when :seen-all-of?
             :events [::song-bgs-loaded
                      ::song-delays-loaded
                      ::playlist-ready
                      ::views-events/views-state-ready
                      ::song-list-events/song-list-ready]
-            :dispatch [::initialized]
+            :dispatch-n [[::set-pageloader-active? false]
+                         [::initialized]]
             :halt? true}]})
 (rf/reg-event-db
  ::boot-failure
  (fn [db [_ e]]
    (.log js/console "Failed to boot: " e)
-   db))
+   (-> db
+       (assoc :boot-failed? true))))
 
 (rf/reg-event-db
  ::initialized
  (fn-traced
   [db _]
   (. js/console (log "initialized!"))
-  db))
+  (-> db
+      (assoc :initialized? true))))
 
 (rf/reg-event-fx
  ::init-db
@@ -85,7 +86,9 @@
                   :custom-song-delay {}
                   :song-backgrounds {}
                   :loop? false
+                  :initialized? false
                   :current-view :home
+                  :pageloader-active? true
          ;; :playlist (pl/build-playlist)
                   :modals []}
     ;; :dispatch-n [[::fetch-custom-delays]
@@ -154,7 +157,7 @@
     (.log js/console "error fetching delays: " e)
     {:db db
      :dispatch [::handle-fetch-delays-complete]}))
-(rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] db))
+(rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] (. js/console (log "fetch delays complete"))db))
 ;; (rf/reg-event-db ::handle-fetch-background-config-complete (fn [db _] db))
 (rf/reg-event-fx
  ::fetch-song-background-config
@@ -246,9 +249,9 @@
  (fn-traced
   [{:keys [db]} _]
   (let [new-db (-> db
-                   (update :playlist next-song))]
+                   (update :playlist pl/next-song))]
     {:db new-db
-     :dispatch [::set-current-song (current ^Playlist (:playlist new-db))]})))
+     :dispatch [::set-current-song (pl/current ^Playlist (:playlist new-db))]})))
 
 (rf/reg-event-fx
  ::playlist-load
@@ -264,7 +267,7 @@
   [{:keys [db]} _]
   {:db db
    :dispatch (if-not (nil? (:playlist db))
-               [::set-current-song (current ^Playlist (:playlist db))]
+               [::set-current-song (pl/current ^Playlist (:playlist db))]
                [::playlist-load])}))
 
 (rf/reg-event-fx
@@ -286,6 +289,8 @@
   [db _]
   (. js/console (log "song backgrounds loaded"))
   db))
+
+(reg-set-attr ::set-initialized? :initialized?)
 (reg-set-attr ::set-loop? :loop?)
 (reg-set-attr ::set-audio-events :audio-events)
 (reg-set-attr ::set-song-duration :song-duration)
@@ -299,6 +304,8 @@
 (reg-set-attr ::set-current-view :current-view)
 (reg-set-attr ::set-player-current-time :player-current-time)
 (reg-set-attr ::set-playing? :playing?)
+(reg-set-attr ::set-pageloader-active? :pageloader-active?)
+
 (rf/reg-event-db
  ::toggle-display-lyrics
  (fn-traced
@@ -341,7 +348,7 @@
         (assoc :lyrics-fetching? false)
         (assoc :lyrics-loaded? true)))))
 
-#_(rf/reg-event-fx
+(rf/reg-event-fx
    ::play
    (rf/after
     (fn-traced
@@ -350,8 +357,8 @@
    (fn-traced
     [{:keys [db]} [_ audio lyrics status]]
     {:dispatch-n [[::set-lyrics lyrics]
-                  [::set-audio audio]
-                  [::set-player-status status]]
+                  [::set-audio audio]]
+                  ;; [::set-player-status status]]
      :db (-> db
              (assoc :playing? true)
              (assoc :player-status status))}))
