@@ -33,7 +33,7 @@
    "wp4.png"])
 
 (def parent-style
-  {:transition "background-image 5s ease-out"
+  {:transition "background-image 1s ease-out"
    :background-size "cover"
    :background-image (str "url(\"images/" (first wallpapers) "\")")})
 
@@ -505,6 +505,9 @@
                                            (rf/dispatch [::events/set-loop? true])
                                            (rf/dispatch [::events/playlist-load])))
   (key/bind! "alt-meta-p" ::alt-meta-play #(play))
+  (key/bind! "shift-right" ::shift-right #(do
+                                            (stop)
+                                            (rf/dispatch [::events/playlist-next])))
   (key/bind! "t t" ::double-t #(trigger-toasty)))
 (defn mount-components! []
   (reagent/render
@@ -527,7 +530,7 @@
 (defmethod aud/process-audio-event :canplaythrough
   [event]
   (println "handling canplaythrough event")
-  (rf/dispatch [::events/set-can-play? true])
+  (rf/dispatch-sync [::events/set-can-play? true])
   (rf/dispatch [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))])
   (when-let [_ (and
                 @(rf/subscribe [::s/loop?])
@@ -551,7 +554,7 @@
 (defmethod aud/process-audio-event :ended
   [event]
   (println "processing ended event: " event)
-  (rf/dispatch [::events/set-playing? false])
+  (rf/dispatch-sync [::events/set-playing? false])
   (when-let [_ @(rf/subscribe [::s/loop?])]
 ;; (songs/load-song)))
       (rf/dispatch [::events/playlist-next])))

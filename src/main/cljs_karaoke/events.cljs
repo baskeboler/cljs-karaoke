@@ -11,6 +11,7 @@
             [cljs-karaoke.events.views :as views-events]
             [cljs-karaoke.events.playlists :as playlist-events]
             [cljs-karaoke.events.song-list :as song-list-events]))
+            ;; [cljs-karaoke.events.songs :as song-events]))
             ;; [cljs-karaoke.playlists.KaraokePlaylist]
             ;; [cljs-karaoke.playlists.Playlist]))
 
@@ -85,7 +86,7 @@
                   :song-duration 0
                   :custom-song-delay {}
                   :song-backgrounds {}
-                  :loop? false
+                  :loop? true
                   :initialized? false
                   :current-view :home
                   :pageloader-active? true
@@ -251,7 +252,8 @@
   (let [new-db (-> db
                    (update :playlist pl/next-song))]
     {:db new-db
-     :dispatch [::set-current-song (pl/current ^Playlist (:playlist new-db))]})))
+     :dispatch [:cljs-karaoke.events.songs/trigger-load-song-flow (pl/current (:playlist new-db))]})))
+               ;[::set-current-song (pl/current ^Playlist (:playlist new-db))]})))
 
 (rf/reg-event-fx
  ::playlist-load
@@ -468,8 +470,8 @@
   [db [_ url]]
   (-> db
       (assoc :bg-style {:background-image (str "url(\"" url "\")")
-                        :background-size "cover"
-                        :transition "background-image 5s ease-out"}))))
+                        :background-size "cover"}))))
+                        ;; :transition "background-image 5s ease-out"}))))
 
 (rf/reg-event-fx
  ::cache-song-bg
