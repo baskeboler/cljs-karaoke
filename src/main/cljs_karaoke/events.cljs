@@ -2,6 +2,7 @@
   (:require [re-frame.core :as rf :include-macros true]
             [day8.re-frame.tracing :refer-macros [fn-traced]]
             [ajax.core :as ajax]
+            [cljs.core.async :as async :refer [chan]]
             [day8.re-frame.async-flow-fx]
             [cljs.reader :as reader]
             [clojure.string :refer [replace]]
@@ -39,8 +40,8 @@
            {:when :seen?
             :events ::playlist-ready
             :dispatch-n [
-                         [::set-current-view :playback]
-                         [::playlist-load]]}
+                         [::set-current-view :playback]]}
+                         ;; [::playlist-load]]}
            {:when :seen-all-of?
             :events [::song-bgs-loaded
                      ::song-delays-loaded
@@ -86,6 +87,7 @@
                   :song-duration 0
                   :custom-song-delay {}
                   :song-backgrounds {}
+                  :stop-channel (chan)
                   :loop? true
                   :initialized? false
                   :current-view :home
@@ -269,7 +271,7 @@
   [{:keys [db]} _]
   {:db db
    :dispatch (if-not (nil? (:playlist db))
-               [::set-current-song (pl/current ^Playlist (:playlist db))]
+               [::set-current-song (pl/current (:playlist db))]
                [::playlist-load])}))
 
 (rf/reg-event-fx
@@ -326,6 +328,7 @@
 
 (reg-set-attr ::set-player-status :player-status)
 (reg-set-attr ::set-highlight-status :highlight-status)
+
 (rf/reg-event-fx
  ::fetch-lyrics
  (fn-traced [{:keys [db]} [_ name process]]

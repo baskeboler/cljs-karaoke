@@ -195,3 +195,8 @@
  ::toasty?
  (fn [db _]
    (:toasty? db)))
+
+(rf/reg-sub
+ ::stop-channel
+ (fn [db _]
+   (:stop-channel db)))

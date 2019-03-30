@@ -16,8 +16,31 @@
                        ::setup-audio-complete
                        ::events/set-audio
                        ::events/set-audio-events]
-              :dispatch-n [[::events/set-pageloader-active? false]]
+              :dispatch-n [[::events/set-pageloader-active? false]
+                           [::events/set-can-play? true]
+                           [::events/set-player-current-time 0]]
               :halt? true}]})
+
+(defn stop-song-flow []
+  {:first-dispatch [::stop-song-start]
+   :rules [:when :seen-all-of?
+           :events [::audio-stopped ::audio-events-closed]
+           :dispatch-n [[::events/set-audio-events nil]
+                        [::events/set-current-frame nil]
+                        [::events/set-lyrics nil]
+                        [::events/set-lyrics-loaded?false]]]})
+
+(rf/reg-event-fx
+ ::stop-song-start
+ (fn-traced
+  [{:keys [db]} _]
+  (when-let [a (get db :audio)]
+    (.pause a))
+  (rf/dispatch [::audio-stopped])
+  (when-let [e (get db :audio-events)]
+    (async/close! e))
+  (rf/dispatch [::audio-events-closed])
+  {:db db}))
 
 (rf/reg-event-fx
  ::trigger-load-song-flow
@@ -33,6 +56,7 @@
   {:db db
    :dispatch-n [[::events/set-pageloader-active? true]
                 [::events/set-can-play? false]
+                [::events/set-playing? false]
                 [::setup-audio-events song-name]
                 [::events/set-current-song song-name]
                 [::events/fetch-lyrics song-name preprocess-frames]
@@ -52,7 +76,9 @@
           (recur (<! audio-events))))
       (.play audio)
       (.pause audio)
+      ;; (set! (.-currentTime audio) 0)
       (rf/dispatch [::events/set-audio audio])
+      (rf/dispatch [::events/set-player-current-time 0])
       (rf/dispatch [::events/set-audio-events audio-events]))))
  (fn-traced
   [{:keys [db]} [_ song-name]]
