@@ -9,13 +9,19 @@
   (println "event ignored: " event))
 
 (defn canplaythrough [evt] {:type :canplaythrough :event evt})
+(defn canplay [evt] {:type :canplay :event evt})
 (defn ended [evt] {:type :ended :event evt})
 (defn play [evt] {:type :play :event evt})
 (defn pause [evt] {:type :pause :event evt})
 (defn timeupdate [evt] {:type :timeupdate :event evt})
+(defn playing [evt] {:type :playing :event evt})
 
 (defn setup-audio-listeners [audio]
   (let [out-chan (chan)]
+    (.. audio
+        (addEventListener
+         "canplay"
+         (fn [evt] (go (>! out-chan (canplay evt))))))
     (.. audio
         (addEventListener
          "canplaythrough"
@@ -36,4 +42,8 @@
         (addEventListener
          "timeupdate"
          (fn [evt] (go (>! out-chan (timeupdate evt))))))
+    (.. audio
+        (addEventListener
+         "playing"
+         (fn [evt] (go (>! out-chan (playing evt))))))
     out-chan))

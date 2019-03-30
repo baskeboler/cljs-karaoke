@@ -1,6 +1,7 @@
 (ns cljs-karaoke.subs
-  (:require [re-frame.core :as rf :include-macros true]))
-
+  (:require [re-frame.core :as rf :include-macros true]
+            [cljs-karaoke.playlists :as pl]))
+             
 
 (rf/reg-sub
  ::display-lyrics?
@@ -157,25 +158,45 @@
 (rf/reg-sub ::audio-events (fn [db _] (:audio-events db)))
 (rf/reg-sub ::loop? (fn [db _] (:loop? db)))
 
-(rf/reg-sub
- ::playlist-current
- (fn [db _]
-   (some-> db
-           :playlist
-           (current))))
 
 (rf/reg-sub
- ::initialized?
- :<- [::views]
- :<- [::song-list]
- (fn [[views songs] _]
-   (and
-    (not (empty? @re-frame.db/app-db))
-    (not (empty? views))
-    (not (empty? songs)))))
+ ::playlist
+ (fn [db _]
+   (some-> db
+           :playlist)))
+(rf/reg-sub
+ ::playlist-current
+ :<- [::playlist]
+ (fn [playlist _]
+   (some-> playlist
+           (pl/current))))
+
+;; (rf/reg-sub
+ ;; ::initialized?
+ ;; :<- [::views]
+ ;; :<- [::song-list]
+ ;; (fn [[views songs] _]
+   ;; (and
+    ;; (not (empty? @re-frame.db/app-db))
+    ;; (not (empty? views))
+    ;; (not (empty? songs)))))
     ;; (not (nil? (:playlist @re-frame.db/app-db))))))
+(rf/reg-sub
+ ::initialized?
+ (fn [db _]
+   (:initialized? db)))
+
+(rf/reg-sub
+ ::pageloader-active?
+ (fn [db _]
+   (:pageloader-active? db)))
 
 (rf/reg-sub
  ::toasty?
  (fn [db _]
    (:toasty? db)))
+
+(rf/reg-sub
+ ::stop-channel
+ (fn [db _]
+   (:stop-channel db)))

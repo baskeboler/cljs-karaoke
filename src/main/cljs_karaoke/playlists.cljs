@@ -8,11 +8,19 @@
   (current [this])
   (has-next? [this]))
 
+(defprotocol ^:export Storable
+  (to-json [this])
+  (from-json [this json]))
+
 (defrecord ^:export KaraokePlaylist [id created current songs]
   Playlist
   (add-song [this song] (-> this (update :songs conj song)))
-  (next-song [this] (-> this
-                        (update :current inc)))
+  (next-song [this]
+    (if (has-next? this)
+      (-> this
+          (update :current inc))
+      (-> this
+          (assoc :current 0))))
   (clear [this] (-> this
                     (assoc :current 0)
                     (assoc :songs [])))
@@ -22,7 +30,16 @@
                      (:songs this)
                      (:current this))
                     nil))
-  (has-next? [this] (< (inc (:current this)) (count songs))))
+  (has-next? [this] (< (inc (:current this)) (count songs)))
+  Storable
+  (to-json [this]
+    (let [o           {:id (:id this)
+                       :created (:created this)
+                       :current (:current this)
+                       :songs (:songs this)}]
+        (js/JSON.stringify (clj->js o))))
+  (from-json [this json]
+    this))
   
 
 (defn build-playlist
