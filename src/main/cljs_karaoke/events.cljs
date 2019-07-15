@@ -12,11 +12,7 @@
             [cljs-karaoke.events.views :as views-events]
             [cljs-karaoke.events.playlists :as playlist-events]
             [cljs-karaoke.events.song-list :as song-list-events]))
-            ;; [cljs-karaoke.events.songs :as song-events]))
-            ;; [cljs-karaoke.playlists.KaraokePlaylist]
-            ;; [cljs-karaoke.playlists.Playlist]))
 
-;; (def ::init-song-list-state ::song-list-events/init-song-list-state)
 (def fetch-bg-from-web-enabled? true)
 
 (defn init-flow []
@@ -30,7 +26,7 @@
            {:when :seen?
             :events [::handle-fetch-delays-complete]
             :dispatch-n '([::save-custom-song-delays-to-localstorage]
-                          [::build-verified-playlist])}
+                          [::playlist-events/build-verified-playlist])}
            {:when :seen-any-of?
             :events [::handle-fetch-background-config-failure
                      ::handle-fetch-delays-failure]
@@ -45,7 +41,7 @@
            {:when :seen-all-of?
             :events [::song-bgs-loaded
                      ::song-delays-loaded
-                     ::playlist-ready
+                     ::playlist-events/playlist-ready
                      ::views-events/views-state-ready
                      ::song-list-events/song-list-ready]
             :dispatch-n [[::set-pageloader-active? false]
@@ -153,15 +149,7 @@
              (assoc :custom-song-delay r))
      :dispatch [::handle-fetch-delays-complete]})))
 
-#_(rf/reg-event-fx
-   ::handle-fetch-delays-failure
-   (fn-traced
-    [{:keys [db]} [_ e]]
-    (.log js/console "error fetching delays: " e)
-    {:db db
-     :dispatch [::handle-fetch-delays-complete]}))
 (rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] (. js/console (log "fetch delays complete"))db))
-;; (rf/reg-event-db ::handle-fetch-background-config-complete (fn [db _] db))
 (rf/reg-event-fx
  ::fetch-song-background-config
  (fn-traced
@@ -234,45 +222,6 @@
   [db _]
   (-> db
       (assoc :song-delays-loaded true))))
-
-(rf/reg-event-fx
- ::build-verified-playlist
- (fn-traced
-  [{:keys [db]} _]
-  (let [pl (pl/build-playlist
-            (keys (get db :custom-song-delay {})))]
-    {:db
-     (-> db
-         (assoc :playlist pl))
-     :dispatch [::playlist-ready]})))
-
-(rf/reg-event-db ::playlist-ready (fn-traced [db _] db))
-(rf/reg-event-fx
- ::playlist-next
- (fn-traced
-  [{:keys [db]} _]
-  (let [new-db (-> db
-                   (update :playlist pl/next-song))]
-    {:db new-db
-     :dispatch [:cljs-karaoke.events.songs/trigger-load-song-flow (pl/current (:playlist new-db))]})))
-               ;[::set-current-song (pl/current ^Playlist (:playlist new-db))]})))
-
-(rf/reg-event-fx
- ::playlist-load
- (fn-traced
-  [{:keys [db]} _]
-  {:db db
-   :dispatch-later [{:ms 2000
-                     :dispatch [::set-current-playlist-song]}]}))
-
-(rf/reg-event-fx
- ::set-current-playlist-song
- (fn-traced
-  [{:keys [db]} _]
-  {:db db
-   :dispatch (if-not (nil? (:playlist db))
-               [::set-current-song (pl/current (:playlist db))]
-               [::playlist-load])}))
 
 (rf/reg-event-fx
  ::init-song-bg-cache

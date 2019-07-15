@@ -20,6 +20,7 @@
             [keybind.core :as key]
             [clojure.string :as str]
             ["bulma-extensions"]
+            [cljs-karaoke.playlists :as pl]
             [cljs-karaoke.views.page-loader :as page-loader]
             [cljs-karaoke.events.songs :as song-events])
   (:import goog.History))
@@ -393,7 +394,8 @@
 (defn playback-controls []
   [:div.playback-controls.field.has-addons
    (stylefy/use-style top-right)
-   [icon-button "stop" "danger" stop]
+   (when-not @(rf/subscribe [::s/song-paused?])
+     [icon-button "stop" "danger" stop])
    [icon-button "forward" "info" #(do
                                     (stop)
                                     (rf/dispatch [::events/playlist-next]))]])
@@ -457,7 +459,7 @@
       [song-progress]])])
 
 (defn toasty []
-  (let [toasty (rf/subscribe [::s/toasty?])]
+  (when-let [toasty (rf/subscribe [::s/toasty?])]
     (when-let [_ (rf/subscribe [::s/initialized?])]
       [:div (stylefy/use-style
               (merge
@@ -490,7 +492,8 @@
   (secretary/set-config! :prefix "#")
   (defroute "/" []
     (println "home path")
-    (songs/load-song))
+    (rf/dispatch-sync [::events/playlist-load])
+    (songs/load-song (pl/current)))
   (defroute "/songs/:song"
     [song query-params]
     (println "song: " song)

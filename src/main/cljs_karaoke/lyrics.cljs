@@ -134,7 +134,7 @@
                     (-> fr
                         (assoc :events events))))
              frames)
-       frames-2 (split-frames-if-necessary (vec no-dupes))
+        frames-2 (split-frames-if-necessary (vec no-dupes))
         with-offset
         (mapv (fn [fr]
                 (-> fr
@@ -152,3 +152,37 @@
     ;; frames-2
     (-> with-relative-events
         (to-relative-frame-offsets))))
+
+
+(defprotocol LyricsDisplay
+  (set-text [self t])
+  (reset-progress [self])
+  (inc-progress [self])
+  (get-progress [self]))
+
+(defrecord RLyricsDisplay [text progress progress-chan])
+
+(extend-protocol LyricsDisplay 
+  RLyricsDisplay
+  (set-text [self t] (-> self (assoc :text t)))
+  (reset-progress [self] (-> self (assoc :progress 0)))
+  (inc-progress [self] 
+                (-> self (update :progress inc)))
+  (get-progress [self]
+    (let [c (count (:text self))]
+      (if (>= (:progress self) (count c))
+        1.0
+        (/ (float (:progress self))
+           (float c))))))
+
+(defn lyrics-display [t]
+  (->RLyricsDisplay t 0))
+
+(def pepe-test 
+  (lyrics-display "hola pepe"))
+
+;; (-> pepe-test
+;;     (set-text "lalala")
+;;     #(iterate inc-progress %)
+;;     (take 5)
+;;     (last))

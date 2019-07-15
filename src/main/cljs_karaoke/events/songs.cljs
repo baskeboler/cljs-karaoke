@@ -85,9 +85,6 @@
   {:db db
    :dispatch-later [{:ms 500
                      :dispatch [::setup-audio-complete]}]}))
-     ;; :dispatch-n [[::events/set-audio-events audio-events]
-                  ;; [::events/set-audio audio]
-                  ;; [::audio-setup-complete]}))
 (rf/reg-event-db
  ::setup-audio-complete
  (fn-traced

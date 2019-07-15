@@ -41,7 +41,7 @@
                           [:div.field>div.control
                            [:textarea.textarea.is-primary
                             {:id "sync-info-textarea"
-                             :value data}
-                           ]]]
+                             :value data}]]]
+                           
                 :footer nil})]
     (rf/dispatch [::events/modal-push modal])))
