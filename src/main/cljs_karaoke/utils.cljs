@@ -45,3 +45,12 @@
                            
                 :footer nil})]
     (rf/dispatch [::events/modal-push modal])))
+
+(defn ratings-input []
+  [:div.control
+   (let [ratings-vals (map inc (range 5))]
+     (for [r ratings-vals]
+       [:label.radio
+        [:input {:type :radio
+                 :name :answer}
+         r]]))])
