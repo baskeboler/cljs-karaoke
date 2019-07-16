@@ -29,9 +29,9 @@
   (current [this]
     (if (< (:current this) (count (:songs this)))
       (nth
-       (:songs this))
-      (:current this
-                nil)))
+       (:songs this)
+       (:current this))
+      nil))
   (has-next? [this]
     (< (inc (:current this)) (count songs)))
   Storable

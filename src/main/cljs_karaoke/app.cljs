@@ -7,6 +7,7 @@
             [cljs-karaoke.events.songs :as song-events]
             [cljs-karaoke.events.song-list :as song-list-events]
             [cljs-karaoke.events.views :as views-events]
+            [cljs-karaoke.events.playlists :as playlist-events]
             [cljs-karaoke.subs :as s]
             [cljs-karaoke.utils :as utils :refer [show-export-sync-info-modal]]
             [cljs-karaoke.songs :as songs :refer [song-table-component]]
@@ -493,8 +494,8 @@
   (secretary/set-config! :prefix "#")
   (defroute "/" []
     (println "home path")
-    (rf/dispatch-sync [::events/playlist-load])
-    (songs/load-song (pl/current)))
+    (rf/dispatch-sync [::playlist-events/playlist-load]))
+    ;; (songs/load-song @(rf/subscribe [::r/playlist-current])))
   (defroute "/songs/:song"
     [song query-params]
     (println "song: " song)
@@ -508,9 +509,9 @@
   ;; Quick and dirty history configuration.
   (defroute "/party-mode" []
     (println "fuck yea! party mode ON")
-    (rf/dispatch [::events/set-loop? true])
+    (rf/dispatch [::playlist-events/set-loop? true])
     ;; (when-some [s (rf/subscribe [::s/playlist-current])]
-    (rf/dispatch [::events/playlist-load]))
+    (rf/dispatch [::playlist-events/playlist-load]))
     ;; (load-song @(rf/subscribe [::s/current-song])))
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
@@ -536,11 +537,11 @@
   (key/bind! "right" ::right #(seek 10000.0))
   (key/bind! "meta-shift-l" ::loop-mode #(do
                                            (rf/dispatch [::events/set-loop? true])
-                                           (rf/dispatch [::events/playlist-load])))
+                                           (rf/dispatch [::playlist-events/playlist-load])))
   (key/bind! "alt-meta-p" ::alt-meta-play #(play))
   (key/bind! "shift-right" ::shift-right #(do
                                             (stop)
-                                            (rf/dispatch [::events/playlist-next])))
+                                            (rf/dispatch [::playlist-events/playlist-next])))
   (key/bind! "t t" ::double-t #(trigger-toasty)))
 (defn mount-components! []
   (reagent/render
