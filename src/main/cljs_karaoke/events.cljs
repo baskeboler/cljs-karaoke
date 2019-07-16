@@ -401,7 +401,7 @@
        {:dispatch [::generate-bg-css cached]}
        (= true fetch-bg-from-web-enabled?)
        {:dispatch [::search-images title [::handle-fetch-bg]]}
-       :else {})))))
+       :else {:dispatch []})))))
 
 (rf/reg-event-fx
  ::handle-fetch-bg
