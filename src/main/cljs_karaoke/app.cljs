@@ -163,6 +163,7 @@
 (defn play []
   (let [audio (rf/subscribe [::s/audio])
         lyrics (rf/subscribe [::s/lyrics])]
+    (rf/dispatch [::events/set-current-view :playback])
     (rf/dispatch-sync [::events/set-player-status
                        (play-lyrics-2 @lyrics)])
     (set! (.-currentTime @audio) 0)
@@ -520,6 +521,16 @@
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
     (doto h (.setEnabled true))))
 
+(defn get-sharing-url []
+  (let [l js/location
+        protocol (. l -protocol)
+        host (. l -host)
+        song @(rf/subscribe [::s/current-song])
+        delay @(rf/subscribe [::s/custom-song-delay])]
+    (->
+     (str protocol "//" host "/#/songs/" song "?lyrics-delay=" delay)
+     (js/encodeURI))))
+
 (defn init-keybindings! []
   (key/bind! "ctrl-space"
              ::ctrl-space-kb
@@ -536,12 +547,13 @@
                  (stop))))
   (key/bind! "l r" ::l-r-kb #(songs/load-song))
   (key/bind! "alt-o" ::alt-o #(rf/dispatch [::views-events/set-view-property :playback :options-enabled? true]))
+  (key/bind! "alt-h" ::alt-h #(rf/dispatch [::events/set-current-view :home]))
   (key/bind! "left" ::left #(seek -10000.0))
   (key/bind! "right" ::right #(seek 10000.0))
   (key/bind! "meta-shift-l" ::loop-mode #(do
                                            (rf/dispatch [::events/set-loop? true])
                                            (rf/dispatch [::playlist-events/playlist-load])))
-  (key/bind! "alt-meta-p" ::alt-meta-play #(play))
+  (key/bind! "alt-shift-p" ::alt-meta-play #(play))
   (key/bind! "shift-right" ::shift-right #(do
                                             (stop)
                                             (rf/dispatch [::playlist-events/playlist-next])))

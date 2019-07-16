@@ -193,6 +193,7 @@
   (-> (. js/localStorage (getItem "custom-song-delays"))
       (js/JSON.parse)
       (js->clj)))
+
 (defn save-to-localstore [name obj]
   (. js/localStorage (setItem name (js/JSON.stringify (clj->js obj)))))
 
@@ -207,7 +208,6 @@
   [{:keys [db]} _]
   (let [delays (get-custom-delays-from-localstorage)]
     {:db (if-not (nil? delays)
-
            (-> db
                (update :custom-song-delay
                        (fn [v]

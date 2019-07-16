@@ -7,11 +7,14 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 100;
+    background-color: rgba(0,0,0, 0.7);
+    padding: 1em;
+    border-radius: 0.2em;
 }
 
 @media only screen and (min-width: 1024px ) {
     .current-frame {
-        font-size: 3.5em;
+        font-size: 3em;
     }
 }
 .song-table {
@@ -35,9 +38,8 @@
     opacity: 0.6;
     transition: all 0.2s ease-out;
     color: black;
-    /* font-family: 'Trocchi', serif; */
     font-family: 'Press Start 2P', cursive;
-    text-shadow:  0 0 5px yellow;
+    text-shadow:  -2px -2px 1px white;
 }
 .current-frame .frame-text > span.highlighted {
     color: red;
