@@ -1,3 +1,7 @@
+html {
+    overflow: hidden;
+}
+
 .current-frame  {
     position: fixed;
     width: 90%;
