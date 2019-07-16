@@ -400,7 +400,7 @@
      [icon-button "stop" "danger" stop])
    [icon-button "forward" "info" #(do
                                     (stop)
-                                    (rf/dispatch [::events/playlist-next]))]])
+                                    (rf/dispatch [::playlist-events/playlist-next]))]])
 
 (defn playback-view []
   [:div.playback-view
@@ -506,13 +506,13 @@
       ;; (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
     (when-some [show-opts? (:show-opts query-params)]
       (rf/dispatch [::views-events/set-view-property :playback :options-enabled? true])))
+
   ;; Quick and dirty history configuration.
   (defroute "/party-mode" []
     (println "fuck yea! party mode ON")
     (rf/dispatch [::playlist-events/set-loop? true])
-    ;; (when-some [s (rf/subscribe [::s/playlist-current])]
     (rf/dispatch [::playlist-events/playlist-load]))
-    ;; (load-song @(rf/subscribe [::s/current-song])))
+  
   (let [h (History.)]
     (goog.events/listen h EventType/NAVIGATE #(secretary/dispatch! (.-token %)))
     (doto h (.setEnabled true))))
@@ -596,4 +596,4 @@
   (rf/dispatch-sync [::events/set-playing? false])
   (when-let [_ @(rf/subscribe [::s/loop?])]
 ;; (songs/load-song)))
-    (rf/dispatch [::events/playlist-next])))
+    (rf/dispatch [::playlist-events/playlist-next])))

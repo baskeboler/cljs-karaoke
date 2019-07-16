@@ -51,25 +51,24 @@
     ""))
 
 (defn- partition-fn [evt]
-   (not (or
-         (str/starts-with? (event-text evt) "\\")
-         (str/starts-with? (event-text evt) "/")
-         (str/ends-with? (event-text evt) ".")
-         (str/ends-with? (event-text evt) "?")
-         (str/ends-with? (event-text evt) "!"))))
+  (not (or
+        (str/starts-with? (event-text evt) "\\")
+        (str/starts-with? (event-text evt) "/")
+        (str/ends-with? (event-text evt) ".")
+        (str/ends-with? (event-text evt) "?")
+        (str/ends-with? (event-text evt) "!"))))
 
 (defn- partition-events [events]
-    (loop [res []
-           events-1 events]
-      (let [[new-grp rst] (split-with partition-fn events-1)
-            new-grp (concat res (take-while (comp not partition-fn) rst))
-            new-rst (drop-while (comp not partition-fn) rst)]
+  (loop [res []
+         events-1 events]
+    (let [[new-grp rst] (split-with partition-fn events-1)
+          new-grp (concat res (take-while (comp not partition-fn) rst))
+          new-rst (drop-while (comp not partition-fn) rst)]
             ;; new-rst rst]
-        (if  (and (empty? new-grp)
-                  (empty? new-rst))
-          res
-          (recur (conj res new-grp) new-rst)))))
-
+      (if  (and (empty? new-grp)
+                (empty? new-rst))
+        res
+        (recur (conj res new-grp) new-rst)))))
 
 (defn- partition-events-2 [events]
   (reduce
@@ -91,7 +90,6 @@
          (map :text)
          (apply str))))
 
-
 (defn build-frame [grp]
   {:type :frame-event
    :id (random-uuid)
@@ -109,17 +107,17 @@
 
 (defn split-frames-if-necessary [frames]
   (let [frame-grps (mapv (fn [fr]
-                          (if (needs-split? fr)
-                            (split-frame fr)
-                            [fr]))
-                        frames)]
+                           (if (needs-split? fr)
+                             (split-frame fr)
+                             [fr]))
+                         frames)]
     (apply concat frame-grps)))
 
 ;; (defn random-uuid [] (cljs.core/random-uuid))
 (defn set-ids [frames]
   #_(s/transform [s/ALL]
-               (fn [fr]
-                 (s/setval [:id] (rand-uuid) fr)))
+                 (fn [fr]
+                   (s/setval [:id] (rand-uuid) fr)))
   (s/transform [s/ALL :events s/ALL]
                (fn [evt]
                  (assoc evt :id (rand-uuid)))
@@ -131,8 +129,8 @@
                (let [events (->> (into #{} (:events fr))
                                  vec
                                  (sort-by :offset))]
-                    (-> fr
-                        (assoc :events events))))
+                 (-> fr
+                     (assoc :events events))))
              frames)
         frames-2 (split-frames-if-necessary (vec no-dupes))
         with-offset
@@ -143,16 +141,15 @@
                                    (map :offset (:events fr))))))
               frames-2)
         with-relative-events        (mapv
-                                     (fn [frame]
-                                       (-> frame
-                                           #(update % :events
-                                                   (update-events-to-relative-offset-with-id
-                                                    (:offset %)))
-                                           with-offset)))]
+                                       (fn [frame]
+                                         (-> frame
+                                             #(update % :events
+                                                    (update-events-to-relative-offset-with-id
+                                                     (:offset %)))))
+                                       with-offset)]
     ;; frames-2
     (-> with-relative-events
         (to-relative-frame-offsets))))
-
 
 (defprotocol LyricsDisplay
   (set-text [self t])
@@ -162,12 +159,12 @@
 
 (defrecord RLyricsDisplay [text progress progress-chan])
 
-(extend-protocol LyricsDisplay 
+(extend-protocol LyricsDisplay
   RLyricsDisplay
   (set-text [self t] (-> self (assoc :text t)))
   (reset-progress [self] (-> self (assoc :progress 0)))
-  (inc-progress [self] 
-                (-> self (update :progress inc)))
+  (inc-progress [self]
+    (-> self (update :progress inc)))
   (get-progress [self]
     (let [c (count (:text self))]
       (if (>= (:progress self) (count c))
@@ -175,11 +172,11 @@
         (/ (float (:progress self))
            (float c))))))
 
-(defn lyrics-display [t]
-  (->RLyricsDisplay t 0))
+;; (defn lyrics-display [t]
+  ;; (->RLyricsDisplay t 0))
 
-(def pepe-test 
-  (lyrics-display "hola pepe"))
+;; (def pepe-test
+  ;; (lyrics-display "hola pepe"))
 
 ;; (-> pepe-test
 ;;     (set-text "lalala")

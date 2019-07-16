@@ -1,5 +1,7 @@
 (ns cljs-karaoke.playlists)
 
+(def empty-col? cljs.core/empty?)
+
 (defprotocol ^:export Playlist
   (add-song [this song])
   (next-song [this])
@@ -25,7 +27,7 @@
                     (assoc :current 0)
                     (assoc :songs [])))
   (empty? [this]
-    (cljs.core/empty? (:songs this)))
+    (empty-col? (:songs this)))
   (current [this]
     (if (< (:current this) (count (:songs this)))
       (nth
