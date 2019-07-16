@@ -1,11 +1,11 @@
 (ns cljs-karaoke.lyrics
   (:require [re-frame.core :as rf]
             [clojure.string :as str]
-            [com.rpl.specter :as s :include-macros true]))
-            ;; [cljs.core :as core :refer [random-uuid]]))
+            [com.rpl.specter :as s :include-macros true]
+            [cljs.core :as core :refer [random-uuid]]))
 
 (def frame-text-limit 128)
-
+(def rand-uuid random-uuid)
 (defn set-event-id [event]
   (if-not (nil? (:id event))
     (assoc event :id (random-uuid))

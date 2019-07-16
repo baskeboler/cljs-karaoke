@@ -37,10 +37,9 @@
                        :created (:created this)
                        :current (:current this)
                        :songs (:songs this)}]
-        (js/JSON.stringify (clj->js o))))
+      (js/JSON.stringify (clj->js o))))
   (from-json [this json]
     this))
-  
 
 (defn build-playlist
   ([id created current songs] (->KaraokePlaylist id created current (vec songs)))

@@ -254,20 +254,21 @@
     [:table.table.is-fullwidth
      [:tbody
       [:tr
-       [:td "current"] [:td]
-       (if-not (nil? @current-song)
-         [:span.tag.is-info.is-normal
-          @current-song]
-         [:span.tag.is-danger.is-normal
-          "no song selected"])]
+       [:td "current"]
+       [:td
+        (if-not (nil? @current-song)
+          [:div.tag.is-info.is-normal
+           @current-song]
+          [:div.tag.is-danger.is-normal
+           "no song selected"])]]
       [:tr
        [:td "is paused?"]
        [:td (if @(rf/subscribe [::s/song-paused?]) "yes" "no")]]
       [:tr
        [:td "lyrics loaded?"]
        [:td (if @lyrics-loaded?
-              [:span.tag.is-success "loaded"]
-              [:span.tag.is-danger "not loaded"])]]]]))
+              [:div.tag.is-success "loaded"]
+              [:div.tag.is-danger "not loaded"])]]]]))
 
 (defn control-panel []
   (let [lyrics (rf/subscribe [::s/lyrics])
@@ -432,7 +433,7 @@
            (songs/load-song))})
       [:span.icon
        [:i.fas.fa-sync.fa-5x]]])
-   ^{:class "edge-stop-btn"}[playback-controls]
+   ^{:class "edge-stop-btn"} [playback-controls]
    #_[:button.button.is-danger.edge-stop-btn
       {:class (if @(rf/subscribe [::s/song-paused?])
                 []
@@ -462,14 +463,14 @@
   (when-let [toasty (rf/subscribe [::s/toasty?])]
     (when-let [_ (rf/subscribe [::s/initialized?])]
       [:div (stylefy/use-style
-              (merge
-               {:position :fixed
-                :bottom "calc(0px - 100%)"
-                :left "-300px"
-                :display :block
-                :transition "bottom 1s ease-in-out"}
-               (if @toasty {:bottom "0px"} {})))
-         [:img {:src "images/toasty.png"}]])))
+             (merge
+              {:position :fixed
+               :bottom "calc(0px - 100%)"
+               :left "-300px"
+               :display :block
+               :transition "bottom 1s ease-in-out"}
+              (if @toasty {:bottom "0px"} {})))
+       [:img {:src "images/toasty.png"}]])))
 
 (defn trigger-toasty []
   (let [a (js/Audio. "media/toasty.mp3")]
@@ -571,9 +572,9 @@
       (.pause audio)
       (rf/dispatch-sync [::events/set-player-current-time 0])))
   #_(when-let [_ (and)
-                @(rf/subscribe [::s/loop?])
-                @(rf/subscribe [::s/song-paused?])]
-     (play)))
+               @(rf/subscribe [::s/loop?])
+               @(rf/subscribe [::s/song-paused?])]
+      (play)))
 
 (defmethod aud/process-audio-event :timeupdate
   [event]
@@ -594,4 +595,4 @@
   (rf/dispatch-sync [::events/set-playing? false])
   (when-let [_ @(rf/subscribe [::s/loop?])]
 ;; (songs/load-song)))
-      (rf/dispatch [::events/playlist-next])))
+    (rf/dispatch [::events/playlist-next])))
