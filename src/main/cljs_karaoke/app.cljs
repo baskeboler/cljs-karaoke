@@ -466,11 +466,14 @@
       [:div (stylefy/use-style
              (merge
               {:position :fixed
-               :bottom "calc(0px - 100%)"
-               :left "-300px"
+               :bottom "-474px"
+               :left "0"
+               :opacity 0
+               :z-index 2
                :display :block
-               :transition "bottom 1s ease-in-out"}
-              (if @toasty {:bottom "0px"} {})))
+               :transition "all 0.5s ease-in-out"}
+              (if @toasty {:bottom "0px"
+                           :opacity 1})))
        [:img {:src "images/toasty.png"}]])))
 
 (defn trigger-toasty []

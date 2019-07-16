@@ -2,7 +2,7 @@
     position: fixed;
     width: 90%;
     text-align: center;
-    font-size: 1.4em;
+    font-size: 1.1rem;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -36,7 +36,7 @@
     transition: all 0.2s ease-out;
     color: black;
     /* font-family: 'Trocchi', serif; */
-    font-family: 'Bangers', cursive;
+    font-family: 'Press Start 2P', cursive;
     text-shadow:  0 0 5px yellow;
 }
 .current-frame .frame-text > span.highlighted {
