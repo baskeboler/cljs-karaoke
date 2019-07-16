@@ -35,8 +35,7 @@
             :halt? true}
            {:when :seen?
             :events ::playlist-ready
-            :dispatch-n [
-                         [::set-current-view :playback]]}
+            :dispatch-n [[::set-current-view :playback]]}
                          ;; [::playlist-load]]}
            {:when :seen-all-of?
             :events [::song-bgs-loaded
@@ -149,7 +148,7 @@
              (assoc :custom-song-delay r))
      :dispatch [::handle-fetch-delays-complete]})))
 
-(rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] (. js/console (log "fetch delays complete"))db))
+(rf/reg-event-db ::handle-fetch-delays-complete (fn [db _] (. js/console (log "fetch delays complete")) db))
 (rf/reg-event-fx
  ::fetch-song-background-config
  (fn-traced
@@ -303,19 +302,19 @@
         (assoc :lyrics-loaded? true)))))
 
 (rf/reg-event-fx
-   ::play
-   (rf/after
-    (fn-traced
-     [_ [_ audio lyrics status]]
-     (.play audio)))
-   (fn-traced
-    [{:keys [db]} [_ audio lyrics status]]
-    {:dispatch-n [[::set-lyrics lyrics]
-                  [::set-audio audio]]
+ ::play
+ (rf/after
+  (fn-traced
+   [_ [_ audio lyrics status]]
+   (.play audio)))
+ (fn-traced
+  [{:keys [db]} [_ audio lyrics status]]
+  {:dispatch-n [[::set-lyrics lyrics]
+                [::set-audio audio]]
                   ;; [::set-player-status status]]
-     :db (-> db
-             (assoc :playing? true)
-             (assoc :player-status status))}))
+   :db (-> db
+           (assoc :playing? true)
+           (assoc :player-status status))}))
 
 (defn highlight-if-same-id [id]
   (fn [evt]

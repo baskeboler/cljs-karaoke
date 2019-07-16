@@ -24,13 +24,16 @@
   (clear [this] (-> this
                     (assoc :current 0)
                     (assoc :songs [])))
-  (empty? [this] (empty? (:songs this)))
-  (current [this] (if (< (:current this) (count (:songs this)))
-                    (nth
-                     (:songs this)
-                     (:current this))
-                    nil))
-  (has-next? [this] (< (inc (:current this)) (count songs)))
+  (empty? [this]
+    (cljs.core/empty? (:songs this)))
+  (current [this]
+    (if (< (:current this) (count (:songs this)))
+      (nth
+       (:songs this))
+      (:current this
+                nil)))
+  (has-next? [this]
+    (< (inc (:current this)) (count songs)))
   Storable
   (to-json [this]
     (let [o           {:id (:id this)

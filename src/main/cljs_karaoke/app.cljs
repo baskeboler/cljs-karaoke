@@ -4,6 +4,7 @@
             [day8.re-frame.http-fx]
             [ajax.core :as ajax]
             [cljs-karaoke.events :as events]
+            [cljs-karaoke.events.songs :as song-events]
             [cljs-karaoke.events.song-list :as song-list-events]
             [cljs-karaoke.events.views :as views-events]
             [cljs-karaoke.subs :as s]
@@ -21,8 +22,7 @@
             [clojure.string :as str]
             ["bulma-extensions"]
             [cljs-karaoke.playlists :as pl]
-            [cljs-karaoke.views.page-loader :as page-loader]
-            [cljs-karaoke.events.songs :as song-events])
+            [cljs-karaoke.views.page-loader :as page-loader])
   (:import goog.History))
 (stylefy/init)
 
