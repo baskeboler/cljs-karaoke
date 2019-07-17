@@ -46,25 +46,27 @@
          (fn [evt] (go (>! out-chan (playing evt))))))
     out-chan))
 
-(def audio-context (js/AudioContext.))
-(def analyser (atom nil))
+;; (def audio-context (js/AudioContext.))
+;; (def analyser (atom nil))
 
-(defn on-stream [stream]
-  (let [input (.createMediaStreamSource audio-context stream)
-        audio-filter (.createBiquadFilter audio-context)
-        analyser (.createAnalyser audio-context)]
-    (set! (.-value (.-frequency audio-filter)) 60.0)
-    (set! (.-type audio-filter) "notch")
-    (set! (.-Q audio-filter) 10.0)
-    (.connect input audio-filter)
-    (.connect audio-filter analyser)
-    (reset! cljs-karaoke.audio/analyser analyser)
-    audio-filter))
-(defn on-stream-error [e]
-  (println e))
-(defn get-microphone-input []
-  (let [args (clj->js
-              {:audio true})]
-    (-> js/navigator
-        (.getUserMedia args on-stream on-stream-error))))
+;; (defn on-stream [stream]
+;;   (let [input (.createMediaStreamSource audio-context stream)
+;;         audio-filter (.createBiquadFilter audio-context)
+;;         analyser (.createAnalyser audio-context)]
+;;     (set! (.-value (.-frequency audio-filter)) 60.0)
+;;     (set! (.-type audio-filter) "notch")
+;;     (set! (.-Q audio-filter) 10.0)
+;;     (.connect input audio-filter)
+;;     (.connect audio-filter analyser)
+;;     (reset! cljs-karaoke.audio/analyser analyser)
+;;     audio-filter))
+
+;; (defn on-stream-error [e]
+;;   (println e))
+
+;; (defn get-microphone-input []
+;;   (let [args (clj->js
+;;               {:audio true})]
+;;     (-> js/navigator
+;;         (.getUserMedia args on-stream on-stream-error))))
     

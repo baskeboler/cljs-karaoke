@@ -3,6 +3,8 @@
             [re-frame.core :as rf :include-macros true]
             [day8.re-frame.http-fx]
             [ajax.core :as ajax]
+            [cljs-karaoke.songs :as songs :refer [song-table-component]]
+            [cljs-karaoke.audio :as aud :refer [setup-audio-listeners]]
             [cljs-karaoke.events :as events]
             [cljs-karaoke.events.songs :as song-events]
             [cljs-karaoke.events.song-list :as song-list-events]
@@ -10,9 +12,7 @@
             [cljs-karaoke.events.playlists :as playlist-events]
             [cljs-karaoke.subs :as s]
             [cljs-karaoke.utils :as utils :refer [show-export-sync-info-modal]]
-            [cljs-karaoke.songs :as songs :refer [song-table-component]]
             [cljs-karaoke.lyrics :as l :refer [preprocess-frames]]
-            [cljs-karaoke.audio :as aud :refer [setup-audio-listeners]]
             [cljs.reader :as reader]
             [cljs.core.async :as async :refer [go go-loop chan <! >! timeout alts!]]
             [stylefy.core :as stylefy]
@@ -25,7 +25,8 @@
             [cljs-karaoke.playlists :as pl]
             [cljs-karaoke.views.page-loader :as page-loader])
   (:import goog.History))
-(stylefy/init)
+
+(defonce s (stylefy/init))
 
 (def wallpapers
   ["wp1.jpeg"
@@ -111,7 +112,7 @@
                         (async/close! c))
            (do
              (println "Dispatching frame")
-             (rf/dispatch-sync [::events/set-current-frame v])
+             (rf/dispatch [::events/set-current-frame v])
              (highlight-parts-2 v))))
        (println "Finished lyrics play go-block"))
      frame-chan))
@@ -565,7 +566,6 @@
 
 (defn init! []
   (println "init!")
-  (rf/dispatch-sync [::events/init-db])
   ;; (rf/dispatch [::events/fetch-custom-delays])
   ;; (rf/dispatch [::events/fetch-song-background-config])
   ;; (rf/dispatch [::song-list-events/init-song-list-state])
@@ -573,8 +573,18 @@
   ;; (rf/dispatch-sync [::events/build-verified-playlist])
   ;; (rf/dispatch [::events/init-song-bg-cache])
   (mount-components!)
-  (init-routing!)
-  (init-keybindings!))
+  (rf/dispatch [::events/init-db])
+  (init-keybindings!)
+  (init-routing!))
+  ;; (async/go
+  ;;   (loop [ready (rf/subscribe [::s/initialized?])]
+  ;;     (when (or (undefined? ready)
+  ;;               (not @ready))
+  ;;       (println "waiting for init")
+  ;;       (async/<!
+  ;;        (async/timeout 100))
+  ;;       (recur (rf/subscribe [::s/initialized?]))))))
+
 
 (defmethod aud/process-audio-event :canplaythrough
   [event]
@@ -586,7 +596,7 @@
     (when song-paused?
       (.play audio)
       (.pause audio)
-      (rf/dispatch-sync [::events/set-player-current-time 0])))
+      (rf/dispatch [::events/set-player-current-time 0])))
   #_(when-let [_ (and)
                @(rf/subscribe [::s/loop?])
                @(rf/subscribe [::s/song-paused?])]
@@ -597,13 +607,13 @@
   (when-let [a @(rf/subscribe [::s/audio])]
     (rf/dispatch-sync [::events/set-player-current-time (.-currentTime a)])))
 
-(defmethod aud/process-audio-event :play
+(defmethod aud/process-audio-event :playing
   [event]
   (rf/dispatch-sync [::events/set-playing? true]))
 
 (defmethod aud/process-audio-event :pause
   [event]
-  (rf/dispatch-sync [::events/set-playing? false]))
+  (rf/dispatch-sync  [::events/set-playing? false]))
 
 (defmethod aud/process-audio-event :ended
   [event]
