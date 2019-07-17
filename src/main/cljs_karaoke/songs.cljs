@@ -617,6 +617,7 @@
     [:div.field>div.control.has-icon
      [:input.input.is-primary
       {:value @filt
+       :name "filter-input"
        :on-change #(rf/dispatch [::song-list-events/set-song-filter
                                  (-> % .-target .-value)])}]
      [:span.icon

@@ -165,8 +165,8 @@
   (let [audio (rf/subscribe [::s/audio])
         lyrics (rf/subscribe [::s/lyrics])]
     (rf/dispatch [::events/set-current-view :playback])
-    (rf/dispatch-sync [::events/set-player-status
-                       (play-lyrics-2 @lyrics)])
+    ;; (rf/dispatch-sync [::events/set-player-status
+                       ;; (play-lyrics-2 @lyrics)])
     (set! (.-currentTime @audio) 0)
     (.play @audio)))
 
@@ -476,7 +476,7 @@
                :transition "all 0.5s ease-in-out"}
               (if @toasty {:bottom "0px"
                            :opacity 1})))
-       [:img {:src "images/toasty.png"}]])))
+       [:img {:src "images/toasty.png" :alt "toasty"}]])))
 
 (defn trigger-toasty []
   (let [a (js/Audio. "media/toasty.mp3")]
@@ -506,9 +506,9 @@
     (println "song: " song)
     (println "query params: " query-params)
     (songs/load-song song)
-    ;; (when-some [offset (:offset query-params)]
-      ;; (rf/dispatch [::events/set-lyrics-delay (long offset)])
-      ;; (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
+    (when-some [offset (:offset query-params)]
+      (rf/dispatch [::events/set-lyrics-delay (long offset)])
+      (rf/dispatch [::events/set-custom-song-delay song (long offset)]))
     (when-some [show-opts? (:show-opts query-params)]
       (rf/dispatch [::views-events/set-view-property :playback :options-enabled? true])))
 
@@ -590,13 +590,12 @@
   [event]
   (println "handling canplaythrough event")
   (rf/dispatch-sync [::events/set-can-play? true])
-  (rf/dispatch [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))])
   (let [audio @(rf/subscribe [::s/audio])
-        song-paused? @(rf/subscribe [::s/song-paused?])]
-    (when song-paused?
-      (.play audio)
-      (.pause audio)
-      (rf/dispatch [::events/set-player-current-time 0])))
+        song-paused? @(rf/subscribe [::s/song-paused?])])
+    ;; (when song-paused?
+      ;; (.play audio)
+      ;; (.pause audio)
+      ;; (rf/dispatch-sync [::events/set-player-current-time 0]))
   #_(when-let [_ (and)
                @(rf/subscribe [::s/loop?])
                @(rf/subscribe [::s/song-paused?])]
@@ -609,7 +608,10 @@
 
 (defmethod aud/process-audio-event :playing
   [event]
-  (rf/dispatch-sync [::events/set-playing? true]))
+  (rf/dispatch-sync [::events/set-song-duration (.-duration @(rf/subscribe [::s/audio]))])
+  (rf/dispatch-sync [::events/set-player-status (play-lyrics-2 @(rf/subscribe [::s/lyrics]))])
+  (rf/dispatch-sync [::events/set-playing? true])
+  (rf/dispatch-sync [::events/set-player-current-time 0]))
 
 (defmethod aud/process-audio-event :pause
   [event]
