@@ -50,6 +50,13 @@
    :async-flow (load-song-flow song-name)}))
 
 (rf/reg-event-fx
+ ::update-song-hash
+ (fn-traced
+  [{:keys [db]} [_ song-name]]
+  {:db db
+   :dispatch [::events/set-location-hash (str "/songs/" song-name)]}))
+
+(rf/reg-event-fx
  ::load-song-start
  (fn-traced
   [{:keys [db]} [_ song-name]]
@@ -58,6 +65,7 @@
                 [::events/set-can-play? false]
                 [::events/set-playing? false]
                 [::setup-audio-events song-name]
+                [::update-song-hash song-name]
                 [::events/set-current-song song-name]
                 [::events/fetch-lyrics song-name preprocess-frames]
                 [::events/set-current-view :playback]]})) 

@@ -202,6 +202,22 @@
       (js/JSON.parse)
       (js->clj)))
 
+(defn set-location-href [url]
+  (set! (.-href js/location) url))
+
+(defn set-location-hash [path]
+  (set! (.-hash js/location) (str "#" path)))
+
+(rf/reg-event-db
+ ::set-location-hash
+ (rf/after
+  (fn [_ [_ new-hash]]
+   (set-location-hash new-hash)))
+ (fn-traced
+  [db [_ new-hash]]
+  (-> db
+      (assoc :location-hash new-hash))))
+
 (rf/reg-event-fx
  ::init-song-delays
  (fn-traced
