@@ -5,12 +5,12 @@ node_js:
 git:
   depth: 1
 
-before_install:
-  - npm install shadow-cljs -g
-install:
-  - npm install
+# before_install:
+  # - npm install shadow-cljs -g
+# install:
+  # - npm install
 
-script: npm run release
+# script: npm run release
 
 deploy:
   provider: pages
